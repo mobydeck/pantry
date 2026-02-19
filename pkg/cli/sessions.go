@@ -21,14 +21,14 @@ var logCmd = &cobra.Command{
 	Short: "List daily note logs",
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
-		shelfDir := filepath.Join(home, "shelves")
+		shelvesDir := filepath.Join(home, "shelves")
 
 		logFiles := []struct {
 			project string
 			fname   string
 		}{}
 
-		entries, err := os.ReadDir(shelfDir)
+		entries, err := os.ReadDir(shelvesDir)
 		if err != nil {
 			fmt.Println("No logs found.")
 			return
@@ -39,7 +39,7 @@ var logCmd = &cobra.Command{
 				continue
 			}
 
-			projDir := filepath.Join(shelfDir, entry.Name())
+			projDir := filepath.Join(shelvesDir, entry.Name())
 			if logProject != "" && entry.Name() != logProject {
 				continue
 			}

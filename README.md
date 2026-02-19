@@ -1,6 +1,6 @@
 # Pantry
 
-Local note storage for coding agents. Your agent keeps notes on decisions, bugs, and context across sessions — no cloud, no API keys, no cost.
+Local note storage for coding agents. Your agent keeps notes on decisions, bugs, and context across sessions — no cloud, no API keys required, no cost.
 
 ## Features
 
@@ -10,20 +10,101 @@ Local note storage for coding agents. Your agent keeps notes on decisions, bugs,
 - **Zero idle cost** — No background processes, no daemon, no RAM overhead. The MCP server only runs when the agent starts it.
 - **Hybrid search** — FTS5 keyword search works out of the box. Add Ollama, OpenAI, or OpenRouter for semantic vector search.
 - **Secret redaction** — 3-layer redaction strips API keys, passwords, and credentials before anything hits disk.
-- **Cross-agent** — Notes stored by one agent are searchable in all agents. One pantry, many agents.
+- **Cross-agent** — Notes stored by one agent are searchable by all agents. One pantry, many agents.
 
 ## Install
 
+### Download a binary (recommended)
+
+1. Go to the [Releases](../../releases) page and download the binary for your platform:
+
+   | Platform | File |
+   |----------|------|
+   | macOS (Apple Silicon) | `pantry-darwin-arm64` |
+   | macOS (Intel) | `pantry-darwin-amd64` |
+   | Linux x86-64 | `pantry-linux-amd64` |
+   | Linux ARM64 | `pantry-linux-arm64` |
+   | Windows x86-64 | `pantry-windows-amd64.exe` |
+
+2. Make it executable and move it to your PATH (macOS/Linux):
+
+   ```bash
+   chmod +x pantry-darwin-arm64
+   mv pantry-darwin-arm64 /usr/local/bin/pantry
+   ```
+
+3. On macOS you may need to allow the binary in **System Settings → Privacy & Security** the first time you run it.
+
+### Initialize
+
 ```bash
-go build ./cmd/pantry   # from repo root
-# or: go install <module-path>/cmd/pantry@latest when published
 pantry init
-pantry setup claude   # or: cursor, codex, opencode
 ```
 
-## Usage
+### Connect your agent
 
-### Store a note
+```bash
+pantry setup claude-code   # or: cursor, codex, opencode
+```
+
+This writes the MCP server entry into your agent's config file. Restart the agent and pantry will be available as a tool.
+
+Run `pantry doctor` to verify everything is working.
+
+## Semantic search (optional)
+
+Keyword search (FTS5) works with no extra setup. To also enable semantic vector search, configure an embedding provider in `~/.pantry/config.yaml`:
+
+**Ollama (local, free):**
+```yaml
+embedding:
+  provider: ollama
+  model: nomic-embed-text
+  base_url: http://localhost:11434
+```
+Install [Ollama](https://ollama.com), then: `ollama pull nomic-embed-text`
+
+**OpenAI:**
+```yaml
+embedding:
+  provider: openai
+  model: text-embedding-3-small
+  api_key: sk-...
+```
+
+**OpenRouter:**
+```yaml
+embedding:
+  provider: openrouter
+  model: openai/text-embedding-3-small
+  api_key: sk-or-...
+```
+
+After changing providers, rebuild the vector index:
+```bash
+pantry reindex
+```
+
+## Commands
+
+```
+pantry init                  Initialize pantry (~/.pantry)
+pantry doctor                Check health and capabilities
+pantry store                 Store a note
+pantry search <query>        Search notes
+pantry retrieve <id>         Show full note details
+pantry list                  List recent notes
+pantry remove <id>           Delete a note
+pantry log                   List daily note files
+pantry config                Show current configuration
+pantry config init           Generate a starter config.yaml
+pantry setup <agent>         Configure MCP for an agent
+pantry uninstall <agent>     Remove agent MCP config
+pantry reindex               Rebuild vector search index
+pantry version               Print version
+```
+
+## Storing notes manually
 
 ```bash
 pantry store \
@@ -33,119 +114,32 @@ pantry store \
   -i "All endpoints now require Bearer token" \
   -g "auth,jwt" \
   -c "decision"
-
-# Long form also works:
-pantry store \
-  --title "Switched to JWT auth" \
-  --what "Replaced session cookies with JWT" \
-  --why "Needed stateless auth for API" \
-  --impact "All endpoints now require Bearer token" \
-  --tags "auth,jwt" \
-  --category "decision"
 ```
 
-### Search notes
-
-```bash
-pantry search "authentication"
-pantry search "authentication" -p        # filter to current project
-pantry search "authentication" -n 10     # show up to 10 results
-```
-
-### Retrieve full details
-
-```bash
-pantry retrieve <id>
-```
-
-### List recent notes
-
-```bash
-pantry list
-pantry list -p                           # filter to current project
-pantry list -n 20                        # show up to 20 notes
-pantry list -q "jwt"                     # filter by query
-```
-
-### Remove a note
-
-```bash
-pantry remove <id>
-```
-
-## Commands
-
-- `pantry init` - Initialize the pantry
-- `pantry store` - Store a note in the pantry
-- `pantry search` - Search notes
-- `pantry retrieve <id>` - Retrieve full details of a note
-- `pantry list` - List recent notes
-- `pantry remove <id>` - Remove a note from the pantry
-- `pantry log` - List daily note logs
-- `pantry config` - Show/manage configuration
-- `pantry config init` - Generate a starter config.yaml
-- `pantry setup <agent>` - Setup MCP for agents (claude, cursor, codex, opencode)
-- `pantry uninstall <agent>` - Remove agent setup
-- `pantry reindex` - Rebuild vector index
-- `pantry mcp` - Start MCP server
-
-## Flag aliases
+## Flag reference
 
 `pantry store`:
 
-| Flag | Alias | Description |
+| Flag | Short | Description |
 |------|-------|-------------|
-| `--title` | `-t` | Title of the note (required) |
+| `--title` | `-t` | Title (required) |
 | `--what` | `-w` | What happened or was learned (required) |
 | `--why` | `-y` | Why it matters |
 | `--impact` | `-i` | Impact or consequences |
 | `--tags` | `-g` | Comma-separated tags |
-| `--category` | `-c` | Category (decision, pattern, bug, context, learning) |
-| `--details` | `-d` | Extended details or context |
+| `--category` | `-c` | `decision`, `pattern`, `bug`, `context`, `learning` |
+| `--details` | `-d` | Extended details |
 | `--source` | `-s` | Source agent identifier |
-| `--project` | `-p` | Project name override |
+| `--project` | `-p` | Project name (defaults to current directory) |
 
 `pantry list` / `pantry search` / `pantry log`:
 
-| Flag | Alias | Description |
+| Flag | Short | Description |
 |------|-------|-------------|
-| `--project` | `-p` | Filter to current project (list/search: boolean; log: string) |
-| `--limit` | `-n` | Maximum number of results |
-| `--source` | `-s` | Filter by source |
-| `--query` | `-q` | Search query (list only) |
-
-## Configuration
-
-Generate a starter config:
-
-```bash
-pantry config init
-```
-
-This creates `~/.pantry/config.yaml`:
-
-```yaml
-embedding:
-  provider: ollama              # ollama | openai | openrouter
-  model: nomic-embed-text
-  base_url: http://localhost:11434
-  # api_key: sk-...            # required for openai/openrouter
-
-context:
-  semantic: auto                # auto | always | never
-  topup_recent: true            # also include recent notes
-```
-
-Run `pantry reindex` after changing embedding providers to rebuild the vector index.
-
-## Testing
-
-See [TESTING.md](TESTING.md) for unit and integration tests. Quick run:
-
-```bash
-go test ./...
-./testing/test-pantry.sh   # full CLI integration test
-```
+| `--project` | `-p` | Filter to current project |
+| `--limit` | `-n` | Maximum results |
+| `--source` | `-s` | Filter by source agent |
+| `--query` | `-q` | Text filter (list only) |
 
 ## License
 

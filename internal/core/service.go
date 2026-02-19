@@ -126,6 +126,11 @@ func (s *Service) VectorsAvailable() bool {
 	return s.vectorsAvailable
 }
 
+// CountItems returns the total number of stored notes, optionally filtered.
+func (s *Service) CountItems(project *string, source *string) (int64, error) {
+	return s.db.CountItems(project, source)
+}
+
 // Store stores an item in the pantry
 func (s *Service) Store(raw models.RawItemInput, project string) (map[string]interface{}, error) {
 	if project == "" {

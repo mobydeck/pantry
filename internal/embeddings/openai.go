@@ -1,86 +1,56 @@
 package embeddings
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
+
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 )
 
-// OpenAIProvider implements embedding generation using OpenAI API
+// OpenAIProvider implements embedding generation using the OpenAI SDK.
+// Also works with OpenRouter and other OpenAI-compatible APIs via base_url.
 type OpenAIProvider struct {
-	model   string
-	apiKey  string
-	baseURL string
-	client  *http.Client
+	model  string
+	client openai.Client
 }
 
-// NewOpenAIProvider creates a new OpenAI embedding provider
+// NewOpenAIProvider creates a new OpenAI embedding provider.
+// baseURL is optional; defaults to https://api.openai.com/v1.
 func NewOpenAIProvider(model string, apiKey string, baseURL string) *OpenAIProvider {
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
+	opts := []option.RequestOption{
+		option.WithAPIKey(apiKey),
+	}
+	if baseURL != "" {
+		opts = append(opts, option.WithBaseURL(strings.TrimSuffix(baseURL, "/")))
 	}
 	return &OpenAIProvider{
-		model:   model,
-		apiKey:  apiKey,
-		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client:  &http.Client{},
+		model:  model,
+		client: openai.NewClient(opts...),
 	}
 }
 
-// Embed generates an embedding vector using OpenAI API
+// Embed generates an embedding vector using the OpenAI embeddings API.
 func (p *OpenAIProvider) Embed(text string) ([]float32, error) {
-	url := fmt.Sprintf("%s/embeddings", p.baseURL)
-
-	requestBody := map[string]interface{}{
-		"model": p.model,
-		"input": text,
-	}
-
-	jsonData, err := json.Marshal(requestBody)
+	resp, err := p.client.Embeddings.New(context.Background(), openai.EmbeddingNewParams{
+		Model: openai.EmbeddingModel(p.model),
+		Input: openai.EmbeddingNewParamsInputUnion{
+			OfArrayOfStrings: []string{text},
+		},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("OpenAI embedding request failed: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", p.apiKey))
-
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call OpenAI API: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("OpenAI API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var response struct {
-		Data []struct {
-			Embedding []float64 `json:"embedding"`
-		} `json:"data"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if len(response.Data) == 0 {
+	if len(resp.Data) == 0 {
 		return nil, fmt.Errorf("no embedding data in response")
 	}
 
-	// Convert []float64 to []float32
-	embedding := make([]float32, len(response.Data[0].Embedding))
-	for i, v := range response.Data[0].Embedding {
-		embedding[i] = float32(v)
+	raw := resp.Data[0].Embedding
+	result := make([]float32, len(raw))
+	for i, v := range raw {
+		result[i] = float32(v)
 	}
-
-	return embedding, nil
+	return result, nil
 }

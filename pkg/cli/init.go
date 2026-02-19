@@ -15,8 +15,8 @@ var initCmd = &cobra.Command{
 	Short: "Initialize the pantry",
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
-		shelfDir := filepath.Join(home, "shelves")
-		if err := os.MkdirAll(shelfDir, 0755); err != nil {
+		shelvesDir := filepath.Join(home, "shelves")
+		if err := os.MkdirAll(shelvesDir, 0755); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to create shelves directory: %v\n", err)
 			os.Exit(1)
 		}

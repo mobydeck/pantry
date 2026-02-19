@@ -43,7 +43,6 @@ func LoadConfig(path string) (*Config, error) {
 		Embedding: EmbeddingConfig{
 			Provider: "ollama",
 			Model:    "nomic-embed-text",
-			BaseURL:  stringPtr("http://localhost:11434"),
 		},
 		Context: ContextConfig{
 			Semantic:   "auto",
@@ -71,7 +70,7 @@ func LoadConfig(path string) (*Config, error) {
 	if config.Embedding.Model == "" {
 		config.Embedding.Model = "nomic-embed-text"
 	}
-	if config.Embedding.BaseURL == nil {
+	if config.Embedding.BaseURL == nil && config.Embedding.Provider == "ollama" {
 		config.Embedding.BaseURL = stringPtr("http://localhost:11434")
 	}
 	if config.Context.Semantic == "" {
