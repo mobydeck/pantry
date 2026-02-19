@@ -138,9 +138,9 @@ run_contains "search finds pooling" "pooling" $PANTRY_BIN search "pooling"
 # --- list ---
 echo ""
 echo "--- list ---"
-run_contains "list shows items" "Available items" $PANTRY_BIN list
+run_contains "list shows items" "Notes" $PANTRY_BIN list
 run_contains "list shows stored items" "JWT auth" $PANTRY_BIN list
-run_contains "list with limit" "Available items" $PANTRY_BIN list --limit 5
+run_contains "list with limit" "Notes" $PANTRY_BIN list --limit 5
 
 # --- retrieve ---
 echo ""
@@ -158,17 +158,17 @@ REMOVE_ID=$(echo "$REMOVE_OUT" | grep -oE 'id: [a-f0-9-]+' | head -1 | cut -d' '
 run_contains "remove deletes item" "Removed" $PANTRY_BIN remove "$REMOVE_ID"
 run_not_contains "removed item not in search" "To be removed" $PANTRY_BIN search "removed" 2>/dev/null || true
 
-# --- sessions ---
+# --- log ---
 echo ""
-echo "--- sessions ---"
-# Sessions are created when storing with project - we have test-project items
-run "sessions runs" $PANTRY_BIN sessions
-run_contains "sessions with limit" "Sessions" $PANTRY_BIN sessions --limit 5 2>/dev/null || $PANTRY_BIN sessions
+echo "--- log ---"
+# Logs are created when storing with project - we have test-project items
+run_contains "log runs" "Logs" $PANTRY_BIN log
+run_contains "log with limit" "Logs" $PANTRY_BIN log --limit 5
 
 # --- config ---
 echo ""
 echo "--- config ---"
-run_contains "config shows memory_home" "memory_home" $PANTRY_BIN config
+run_contains "config shows pantry_home" "pantry_home" $PANTRY_BIN config
 run_contains "config shows embedding" "embedding" $PANTRY_BIN config
 run_contains "config init --force" "Created\|already exists" $PANTRY_BIN config init --force 2>/dev/null || $PANTRY_BIN config init --force
 

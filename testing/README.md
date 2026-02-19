@@ -21,10 +21,10 @@ PANTRY_BIN=./pantry ./testing/test-pantry.sh
 - **init** — Creates shelves, index.db, config.yaml
 - **store** — Basic store, with details, with related-files, validation (requires --title/--what)
 - **search** — Keyword search, limit, result content
-- **list** — Recent items, limit
+- **list** — Recent notes, limit
 - **retrieve** — By full ID, short ID, details content
-- **remove** — Delete item, verify it's gone from search
-- **sessions** — List session files
+- **remove** — Delete note, verify it's gone from search
+- **log** — List daily note logs
 - **config** — Show config, init --force
 - **reindex** — Rebuild vector index (FTS-only when embeddings unavailable)
 - **setup/uninstall** — Unknown agent fails, cursor with --config-dir
