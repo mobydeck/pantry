@@ -1,0 +1,95 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+	"pantry/internal/core"
+)
+
+var (
+	searchLimit   int
+	searchProject bool
+	searchSource  string
+)
+
+var searchCmd = &cobra.Command{
+	Use:   "search [query]",
+	Short: "Search pantry items",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		query := args[0]
+
+		svc, err := core.NewService("")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer svc.Close()
+
+		var project *string
+		if searchProject {
+			// Get current directory name
+			dir, _ := os.Getwd()
+			projectName := dir
+			project = &projectName
+		}
+
+		var source *string
+		if searchSource != "" {
+			source = &searchSource
+		}
+
+		results, err := svc.Search(query, searchLimit, project, source, true)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		if len(results) == 0 {
+			fmt.Println("No results found.")
+			return
+		}
+
+		fmt.Printf("\n Results (%d found) \n\n", len(results))
+
+		for i, r := range results {
+			cat := ""
+			if r.Category != nil {
+				cat = *r.Category
+			}
+			src := ""
+			if r.Source != nil {
+				src = *r.Source
+			}
+
+			fmt.Printf(" [%d] %s (score: %.2f)\n", i+1, r.Title, r.Score)
+			fmt.Printf("     %s | %s | %s", cat, r.CreatedAt[:10], r.Project)
+			if src != "" {
+				fmt.Printf(" | %s", src)
+			}
+			fmt.Println()
+			fmt.Printf("     What: %s\n", r.What)
+
+			if r.Why != nil {
+				fmt.Printf("     Why: %s\n", *r.Why)
+			}
+
+			if r.Impact != nil {
+				fmt.Printf("     Impact: %s\n", *r.Impact)
+			}
+
+			if r.HasDetails {
+				fmt.Printf("     Details: available (use `pantry retrieve %s`)\n", r.ID[:12])
+			}
+			fmt.Println()
+		}
+	},
+}
+
+func init() {
+	searchCmd.Flags().IntVar(&searchLimit, "limit", 5, "Maximum number of results")
+	searchCmd.Flags().BoolVar(&searchProject, "project", false, "Filter to current project")
+	searchCmd.Flags().StringVar(&searchSource, "source", "", "Filter by source")
+}

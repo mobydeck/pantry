@@ -1,0 +1,42 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+	"pantry/internal/core"
+)
+
+var reindexCmd = &cobra.Command{
+	Use:   "reindex",
+	Short: "Rebuild vector index with current embedding provider",
+	Run: func(cmd *cobra.Command, args []string) {
+		svc, err := core.NewService("")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer svc.Close()
+
+		// Check if there are any items
+		// Simplified - would need to get count from service
+		fmt.Println("Reindexing items...")
+
+		progressCallback := func(current, total int) {
+			fmt.Printf("  %d/%d\r", current, total)
+			if current == total {
+				fmt.Println()
+			}
+		}
+
+		result, err := svc.Reindex(progressCallback)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Re-indexed %v items with %v (%v dims)\n",
+			result["count"], result["model"], result["dim"])
+	},
+}
