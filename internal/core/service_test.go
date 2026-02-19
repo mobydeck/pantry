@@ -1,8 +1,6 @@
 package core
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"pantry/internal/models"
@@ -43,10 +41,10 @@ func TestService_Store(t *testing.T) {
 		t.Fatalf("Store() error = %v", err)
 	}
 
-	if result["id"] == "" {
+	if result["id"].(string) == "" {
 		t.Error("Store() should return item ID")
 	}
-	if result["action"] != "created" {
+	if result["action"].(string) != "created" {
 		t.Errorf("Store() action = %q, want %q", result["action"], "created")
 	}
 }
@@ -101,7 +99,7 @@ func TestService_GetDetails(t *testing.T) {
 	}
 
 	// Retrieve details
-	detail, err := svc.GetDetails(result["id"])
+	detail, err := svc.GetDetails(result["id"].(string))
 	if err != nil {
 		t.Fatalf("GetDetails() error = %v", err)
 	}
@@ -133,7 +131,7 @@ func TestService_Remove(t *testing.T) {
 	}
 
 	// Delete it
-	deleted, err := svc.Remove(result["id"])
+	deleted, err := svc.Remove(result["id"].(string))
 	if err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}
@@ -142,7 +140,7 @@ func TestService_Remove(t *testing.T) {
 	}
 
 	// Try to delete again (should return false)
-	deleted, err = svc.Remove(result["id"])
+	deleted, err = svc.Remove(result["id"].(string))
 	if err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}

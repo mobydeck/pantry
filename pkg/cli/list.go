@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ var listCmd = &cobra.Command{
 		var project *string
 		if listProject {
 			dir, _ := os.Getwd()
-			projectName := dir
+			projectName := filepath.Base(dir)
 			project = &projectName
 		}
 

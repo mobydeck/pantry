@@ -78,7 +78,48 @@ func LoadConfig(path string) (*Config, error) {
 		config.Context.Semantic = "auto"
 	}
 
+	// Environment variable overrides (take precedence over file values).
+	// Useful for MCP servers launched by host applications that inject secrets
+	// via the environment rather than writing them to disk.
+	if v := os.Getenv("PANTRY_EMBEDDING_PROVIDER"); v != "" {
+		config.Embedding.Provider = v
+	}
+	if v := os.Getenv("PANTRY_EMBEDDING_MODEL"); v != "" {
+		config.Embedding.Model = v
+	}
+	if v := os.Getenv("PANTRY_EMBEDDING_API_KEY"); v != "" {
+		config.Embedding.APIKey = &v
+	}
+	if v := os.Getenv("PANTRY_EMBEDDING_BASE_URL"); v != "" {
+		config.Embedding.BaseURL = &v
+	}
+	if v := os.Getenv("PANTRY_CONTEXT_SEMANTIC"); v != "" {
+		config.Context.Semantic = v
+	}
+
 	return config, nil
+}
+
+// Validate returns an error if the configuration contains invalid values.
+// Call this after LoadConfig to surface misconfiguration at startup.
+func (c *Config) Validate() error {
+	validProviders := map[string]bool{"ollama": true, "openai": true, "openrouter": true}
+	if !validProviders[c.Embedding.Provider] {
+		return fmt.Errorf("invalid embedding.provider %q: must be one of ollama, openai, openrouter", c.Embedding.Provider)
+	}
+	if c.Embedding.Model == "" {
+		return fmt.Errorf("embedding.model must not be empty")
+	}
+	validSemantic := map[string]bool{"auto": true, "always": true, "never": true}
+	if !validSemantic[c.Context.Semantic] {
+		return fmt.Errorf("invalid context.semantic %q: must be one of auto, always, never", c.Context.Semantic)
+	}
+	if c.Embedding.Provider == "openai" || c.Embedding.Provider == "openrouter" {
+		if c.Embedding.APIKey == nil || *c.Embedding.APIKey == "" {
+			return fmt.Errorf("embedding.api_key is required for provider %q", c.Embedding.Provider)
+		}
+	}
+	return nil
 }
 
 // SaveConfig saves configuration to a YAML file

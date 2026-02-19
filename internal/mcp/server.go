@@ -14,6 +14,15 @@ import (
 	"pantry/internal/models"
 )
 
+// pantryService is the subset of core.Service used by MCP tool handlers.
+// Defining it here allows tests to inject stubs without depending on core.Service.
+type pantryService interface {
+	Store(raw models.RawItemInput, project string) (map[string]interface{}, error)
+	Search(query string, limit int, project *string, source *string, useVectors bool) ([]models.SearchResult, error)
+	GetContext(limit int, project *string, source *string, query *string, semanticMode string, topupRecent bool) ([]models.SearchResult, int64, error)
+	Close() error
+}
+
 // RunServer starts the MCP server with stdio transport
 func RunServer() error {
 	svc, err := core.NewService("")
@@ -38,7 +47,7 @@ func RunServer() error {
 }
 
 // registerTools registers all pantry tools with the MCP server
-func registerTools(s *mcpsdk.Server, svc *core.Service) error {
+func registerTools(s *mcpsdk.Server, svc pantryService) error {
 	// Register pantry_store tool
 	storeHandler := func(ctx context.Context, req *mcpsdk.CallToolRequest, input map[string]interface{}) (*mcpsdk.CallToolResult, map[string]interface{}, error) {
 		result, err := HandlePantryStore(svc, input)
@@ -50,12 +59,7 @@ func registerTools(s *mcpsdk.Server, svc *core.Service) error {
 				IsError: true,
 			}, nil, nil
 		}
-		// Convert map[string]string to map[string]interface{}
-		resultMap := make(map[string]interface{})
-		for k, v := range result {
-			resultMap[k] = v
-		}
-		return nil, resultMap, nil
+		return nil, result, nil
 	}
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "pantry_store",
@@ -136,7 +140,7 @@ func registerTools(s *mcpsdk.Server, svc *core.Service) error {
 }
 
 // HandlePantryStore handles the pantry_store tool call
-func HandlePantryStore(svc *core.Service, params map[string]interface{}) (map[string]interface{}, error) {
+func HandlePantryStore(svc pantryService, params map[string]interface{}) (map[string]interface{}, error) {
 	title, _ := params["title"].(string)
 	what, _ := params["what"].(string)
 	why, _ := getStringFromMap(params, "why")
@@ -180,17 +184,11 @@ func HandlePantryStore(svc *core.Service, params map[string]interface{}) (map[st
 		return nil, err
 	}
 
-	// Convert map[string]string to map[string]interface{}
-	resultMap := make(map[string]interface{})
-	for k, v := range result {
-		resultMap[k] = v
-	}
-
-	return resultMap, nil
+	return result, nil
 }
 
 // HandlePantrySearch handles the pantry_search tool call
-func HandlePantrySearch(svc *core.Service, params map[string]interface{}) ([]map[string]interface{}, error) {
+func HandlePantrySearch(svc pantryService, params map[string]interface{}) ([]map[string]interface{}, error) {
 	query, _ := params["query"].(string)
 	limit := 5
 	if l, ok := params["limit"].(float64); ok {
@@ -229,7 +227,7 @@ func HandlePantrySearch(svc *core.Service, params map[string]interface{}) ([]map
 }
 
 // HandlePantryContext handles the pantry_context tool call
-func HandlePantryContext(svc *core.Service, params map[string]interface{}) (map[string]interface{}, error) {
+func HandlePantryContext(svc pantryService, params map[string]interface{}) (map[string]interface{}, error) {
 	limit := 10
 	if l, ok := params["limit"].(float64); ok {
 		limit = int(l)
@@ -310,7 +308,13 @@ func getStringSliceFromMap(m map[string]interface{}, key string) ([]string, bool
 	return nil, false
 }
 
+// getCurrentDir returns the current working directory, or "unknown" if it
+// cannot be determined. This prevents filepath.Base("") returning "." which
+// would silently be stored as a project name.
 func getCurrentDir() string {
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		return "unknown"
+	}
 	return dir
 }

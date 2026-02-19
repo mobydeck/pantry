@@ -14,6 +14,9 @@ import (
 	"pantry/internal/models"
 )
 
+// Compile-time check that *DB satisfies the Store interface.
+var _ Store = (*DB)(nil)
+
 // DB wraps the database connection and provides methods for pantry operations
 type DB struct {
 	db *gorm.DB
@@ -144,7 +147,7 @@ func (d *DB) EnsureVecTable(dim int) error {
 		}
 		return d.createVecTable(dim)
 	} else if *storedDim != dim {
-		return fmt.Errorf("dimension mismatch: database has %d, provider returned %d. Run 'pantry reindex' to rebuild", *storedDim, dim)
+		return fmt.Errorf("%w: database has %d, provider returned %d. Run 'pantry reindex' to rebuild", ErrDimensionMismatch, *storedDim, dim)
 	}
 	return nil
 }
@@ -239,7 +242,7 @@ func (d *DB) UpdateItem(itemID string, what *string, why *string, impact *string
 	// Resolve full ID from prefix
 	var itemModel ItemModel
 	if err := d.db.Where("id LIKE ?", itemID+"%").First(&itemModel).Error; err != nil {
-		return fmt.Errorf("item not found")
+		return fmt.Errorf("%w: %s", ErrNotFound, itemID)
 	}
 
 	fullID := itemModel.ID
@@ -385,7 +388,9 @@ func (d *DB) FTSSearch(query string, limit int, project *string, source *string)
 			result.Source = &row.Source.String
 		}
 
-		json.Unmarshal([]byte(row.Tags), &result.Tags)
+		if err := json.Unmarshal([]byte(row.Tags), &result.Tags); err != nil {
+			result.Tags = []string{}
+		}
 		results[i] = result
 	}
 
@@ -468,51 +473,85 @@ func (d *DB) VectorSearch(queryEmbedding []float32, limit int, project *string, 
 			result.Source = &row.Source.String
 		}
 
-		json.Unmarshal([]byte(row.Tags), &result.Tags)
+		if err := json.Unmarshal([]byte(row.Tags), &result.Tags); err != nil {
+			result.Tags = []string{}
+		}
 		results[i] = result
 	}
 
 	return results, nil
 }
 
-// ListRecent lists recent items ordered by creation date descending using GORM
+// ListRecent lists recent items ordered by creation date descending.
+// Uses a single raw SQL query with an EXISTS subquery to avoid N+1 queries.
 func (d *DB) ListRecent(limit int, project *string, source *string) ([]models.SearchResult, error) {
-	var itemModels []ItemModel
-	query := d.db.Order("created_at DESC").Limit(limit)
-
+	whereClause := "1=1"
+	args := []interface{}{}
 	if project != nil {
-		query = query.Where("project = ?", *project)
+		whereClause += " AND m.project = ?"
+		args = append(args, *project)
 	}
 	if source != nil {
-		query = query.Where("source = ?", *source)
+		whereClause += " AND m.source = ?"
+		args = append(args, *source)
+	}
+	args = append(args, limit)
+
+	var rows []struct {
+		ID         string
+		Title      string
+		What       string
+		Why        sql.NullString
+		Impact     sql.NullString
+		Category   sql.NullString
+		Tags       string
+		Project    string
+		Source     sql.NullString
+		FilePath   string
+		CreatedAt  string
+		HasDetails bool
 	}
 
-	if err := query.Find(&itemModels).Error; err != nil {
+	err := d.db.Raw(fmt.Sprintf(`
+		SELECT m.id, m.title, m.what, m.why, m.impact, m.category, m.tags,
+		       m.project, m.source, m.file_path, m.created_at,
+		       EXISTS(SELECT 1 FROM item_details WHERE item_id = m.id) AS has_details
+		FROM items m
+		WHERE %s
+		ORDER BY m.created_at DESC
+		LIMIT ?
+	`, whereClause), args...).Scan(&rows).Error
+
+	if err != nil {
 		return nil, err
 	}
 
-	results := make([]models.SearchResult, len(itemModels))
-	for i, im := range itemModels {
+	results := make([]models.SearchResult, len(rows))
+	for i, row := range rows {
 		result := models.SearchResult{
-			ID:         im.ID,
-			Title:      im.Title,
-			Project:    im.Project,
-			CreatedAt:  im.CreatedAt,
+			ID:         row.ID,
+			Title:      row.Title,
+			What:       row.What,
+			Project:    row.Project,
+			FilePath:   row.FilePath,
+			CreatedAt:  row.CreatedAt,
+			HasDetails: row.HasDetails,
 		}
-
-		if im.Category != nil {
-			result.Category = im.Category
+		if row.Why.Valid {
+			result.Why = &row.Why.String
 		}
-		if im.Source != nil {
-			result.Source = im.Source
+		if row.Impact.Valid {
+			result.Impact = &row.Impact.String
 		}
-
-		// Check if details exist
-		var hasDetails bool
-		d.db.Model(&ItemDetailModel{}).Select("COUNT(*) > 0").Where("item_id = ?", im.ID).Scan(&hasDetails)
-		result.HasDetails = hasDetails
-
-		json.Unmarshal([]byte(im.Tags), &result.Tags)
+		if row.Category.Valid {
+			result.Category = &row.Category.String
+		}
+		if row.Source.Valid {
+			result.Source = &row.Source.String
+		}
+		if err := json.Unmarshal([]byte(row.Tags), &result.Tags); err != nil {
+			result.Tags = []string{}
+		}
 		results[i] = result
 	}
 
@@ -544,7 +583,9 @@ func (d *DB) ListAllForReindex() ([]map[string]interface{}, error) {
 			result["impact"] = *im.Impact
 		}
 		var tags []string
-		json.Unmarshal([]byte(im.Tags), &tags)
+		if err := json.Unmarshal([]byte(im.Tags), &tags); err != nil {
+			tags = []string{}
+		}
 		result["tags"] = tags
 		results[i] = result
 	}

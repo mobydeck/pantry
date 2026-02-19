@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"pantry/internal/config"
@@ -16,22 +18,43 @@ import (
 	"pantry/internal/storage"
 )
 
-// Service is the main orchestrator for pantry operations
-type Service struct {
-	pantryHome   string
-	vaultDir     string
-	dbPath       string
-	configPath   string
-	ignorePath   string
-	config       *config.Config
-	db           *db.DB
-	embeddingProvider embeddings.Provider
-	ignorePatterns    []string
-	vectorsAvailable  *bool
+const (
+	// DedupScoreThreshold is the minimum normalized FTS score (0–1) combined
+	// with an exact title match required to treat a new store as an update.
+	DedupScoreThreshold = 0.7
+)
+
+// Option is a functional option for NewService.
+type Option func(*Service)
+
+// WithStore injects a custom db.Store implementation, primarily for testing.
+func WithStore(s db.Store) Option {
+	return func(svc *Service) { svc.db = s }
 }
 
-// NewService creates a new pantry service
-func NewService(pantryHome string) (*Service, error) {
+// Service is the main orchestrator for pantry operations
+type Service struct {
+	pantryHome          string
+	vaultDir            string
+	dbPath              string
+	configPath          string
+	ignorePath          string
+	config              *config.Config
+	db                  db.Store
+	compiledIgnore      []*regexp.Regexp // pre-compiled from .pantryignore
+
+	// Lazy-initialized, protected by sync.Once for safety under concurrent access.
+	embeddingOnce     sync.Once
+	embeddingProvider embeddings.Provider
+	embeddingErr      error
+
+	vectorsOnce      sync.Once
+	vectorsAvailable bool
+}
+
+// NewService creates a new pantry service. Pass Option values to override
+// defaults (e.g., WithStore for testing).
+func NewService(pantryHome string, opts ...Option) (*Service, error) {
 	if pantryHome == "" {
 		pantryHome = config.GetPantryHome()
 	}
@@ -46,10 +69,13 @@ func NewService(pantryHome string) (*Service, error) {
 		return nil, fmt.Errorf("failed to create vault directory: %w", err)
 	}
 
-	// Load configuration
+	// Load and validate configuration
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	// Initialize database
@@ -58,44 +84,50 @@ func NewService(pantryHome string) (*Service, error) {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	// Load ignore patterns
-	ignorePatterns, _ := redaction.LoadPantryIgnore(ignorePath)
+	// Load ignore patterns (.pantryignore missing is fine; other errors are surfaced)
+	ignorePatterns, ignoreErr := redaction.LoadPantryIgnore(ignorePath)
+	if ignoreErr != nil && !os.IsNotExist(ignoreErr) {
+		fmt.Fprintf(os.Stderr, "warning: failed to load .pantryignore: %v\n", ignoreErr)
+	}
 
-	return &Service{
+	svc := &Service{
 		pantryHome:     pantryHome,
 		vaultDir:       vaultDir,
 		dbPath:         dbPath,
 		configPath:     configPath,
 		ignorePath:     ignorePath,
 		config:         cfg,
-		db:            database,
-		ignorePatterns: ignorePatterns,
-	}, nil
+		db:             database,
+		compiledIgnore: redaction.CompilePatterns(ignorePatterns),
+	}
+
+	for _, o := range opts {
+		o(svc)
+	}
+
+	return svc, nil
 }
 
-// GetEmbeddingProvider returns the embedding provider, lazily initializing if needed
+// GetEmbeddingProvider returns the embedding provider, lazily initializing if needed.
+// Safe for concurrent use.
 func (s *Service) GetEmbeddingProvider() (embeddings.Provider, error) {
-	if s.embeddingProvider == nil {
-		provider, err := embeddings.NewProvider(s.config.Embedding)
-		if err != nil {
-			return nil, err
-		}
-		s.embeddingProvider = provider
-	}
-	return s.embeddingProvider, nil
+	s.embeddingOnce.Do(func() {
+		s.embeddingProvider, s.embeddingErr = embeddings.NewProvider(s.config.Embedding)
+	})
+	return s.embeddingProvider, s.embeddingErr
 }
 
-// VectorsAvailable checks if vector operations are available
+// VectorsAvailable checks if vector operations are available.
+// Safe for concurrent use.
 func (s *Service) VectorsAvailable() bool {
-	if s.vectorsAvailable == nil {
-		available := s.db.HasVecTable()
-		s.vectorsAvailable = &available
-	}
-	return *s.vectorsAvailable
+	s.vectorsOnce.Do(func() {
+		s.vectorsAvailable = s.db.HasVecTable()
+	})
+	return s.vectorsAvailable
 }
 
 // Store stores an item in the pantry
-func (s *Service) Store(raw models.RawItemInput, project string) (map[string]string, error) {
+func (s *Service) Store(raw models.RawItemInput, project string) (map[string]interface{}, error) {
 	if project == "" {
 		project = filepath.Base(getCurrentDir())
 	}
@@ -108,18 +140,18 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]str
 		return nil, fmt.Errorf("failed to create project directory: %w", err)
 	}
 
-	// Redact all text fields
-	raw.What = redaction.Redact(raw.What, s.ignorePatterns)
+	// Redact all text fields using pre-compiled patterns
+	raw.What = redaction.RedactCompiled(raw.What, s.compiledIgnore)
 	if raw.Why != nil {
-		redacted := redaction.Redact(*raw.Why, s.ignorePatterns)
+		redacted := redaction.RedactCompiled(*raw.Why, s.compiledIgnore)
 		raw.Why = &redacted
 	}
 	if raw.Impact != nil {
-		redacted := redaction.Redact(*raw.Impact, s.ignorePatterns)
+		redacted := redaction.RedactCompiled(*raw.Impact, s.compiledIgnore)
 		raw.Impact = &redacted
 	}
 	if raw.Details != nil {
-		redacted := redaction.Redact(*raw.Details, s.ignorePatterns)
+		redacted := redaction.RedactCompiled(*raw.Details, s.compiledIgnore)
 		raw.Details = &redacted
 	}
 
@@ -140,7 +172,7 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]str
 				normalized = top.Score / maxScore
 			}
 			titleMatch := strings.EqualFold(strings.TrimSpace(raw.Title), strings.TrimSpace(top.Title))
-			if normalized >= 0.7 && titleMatch {
+			if normalized >= DedupScoreThreshold && titleMatch {
 				// Update existing item
 				existingID := top.ID
 				existingFilePath := top.FilePath
@@ -158,12 +190,7 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]str
 					return nil, fmt.Errorf("failed to update item: %w", err)
 				}
 
-				// Re-embed the updated item (if needed)
-				// Note: Re-embedding on update would require rowid lookup
-				// For now, skip re-embedding on update to avoid complexity
-				_, _ = s.GetEmbeddingProvider() // Ensure provider is initialized
-
-				return map[string]string{
+				return map[string]interface{}{
 					"id":        existingID,
 					"file_path": existingFilePath,
 					"action":    "updated",
@@ -195,14 +222,11 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]str
 		if err == nil {
 			if err := s.db.EnsureVecTable(len(embedding)); err == nil {
 				s.db.InsertVector(rowid, embedding)
-				if s.vectorsAvailable != nil {
-					*s.vectorsAvailable = true
-				}
 			}
 		}
 	}
 
-	return map[string]string{
+	return map[string]interface{}{
 		"id":        item.ID,
 		"file_path": filePath,
 		"action":    "created",
@@ -218,7 +242,7 @@ func (s *Service) Search(query string, limit int, project *string, source *strin
 	}
 
 	// Use tiered search: FTS first, embed only if sparse results
-	return search.TieredSearch(s.db, provider, query, limit, 3, project, source)
+	return search.TieredSearch(s.db, provider, query, limit, search.DefaultMinFTSResults, project, source)
 }
 
 // GetContext gets item pointers for context injection
@@ -335,10 +359,6 @@ func (s *Service) Reindex(progressCallback func(current, total int)) (map[string
 		}
 	}
 
-	if s.vectorsAvailable != nil {
-		*s.vectorsAvailable = true
-	}
-
 	return map[string]interface{}{
 		"count": total,
 		"dim":   dim,
@@ -352,8 +372,15 @@ func (s *Service) Close() error {
 }
 
 // Helper functions
+
+// getCurrentDir returns the current working directory, or "unknown" if it
+// cannot be determined. This prevents filepath.Base("") returning "." which
+// would silently be stored as a project name.
 func getCurrentDir() string {
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		return "unknown"
+	}
 	return dir
 }
 

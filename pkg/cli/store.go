@@ -82,8 +82,8 @@ var storeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Stored: %s (id: %s)\n", storeTitle, result["id"])
-		fmt.Printf("File: %s\n", result["file_path"])
+		fmt.Printf("Stored: %s (id: %s)\n", storeTitle, result["id"].(string))
+		fmt.Printf("File: %s\n", result["file_path"].(string))
 	},
 }
 

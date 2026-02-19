@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"pantry/internal/core"
@@ -30,9 +31,8 @@ var searchCmd = &cobra.Command{
 
 		var project *string
 		if searchProject {
-			// Get current directory name
 			dir, _ := os.Getwd()
-			projectName := dir
+			projectName := filepath.Base(dir)
 			project = &projectName
 		}
 
