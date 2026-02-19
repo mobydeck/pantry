@@ -45,12 +45,19 @@ func uninstallSkill(agentHome string) bool {
 		if err := os.RemoveAll(skillDir); err != nil {
 			return false
 		}
-		return true
+	} else {
+		// Symlink
+		if err := os.Remove(skillDir); err != nil {
+			return false
+		}
 	}
 
-	// Symlink
-	if err := os.Remove(skillDir); err != nil {
-		return false
+	// Remove the parent skills/ dir if now empty.
+	skillsDir := filepath.Join(agentHome, "skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err == nil && len(entries) == 0 {
+		os.Remove(skillsDir)
 	}
+
 	return true
 }
