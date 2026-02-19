@@ -63,7 +63,7 @@ func registerTools(s *mcpsdk.Server, svc pantryService) error {
 	}
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "pantry_store",
-		Description: "Save a memory for future sessions. You MUST call this before ending any session where you made changes, fixed bugs, made decisions, or learned something.",
+		Description: "Store a note for future sessions. You MUST call this before ending any session where you made changes, fixed bugs, made decisions, or learned something.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -97,12 +97,12 @@ func registerTools(s *mcpsdk.Server, svc pantryService) error {
 	}
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "pantry_search",
-		Description: "Search memories using keyword and semantic search. Returns matching memories ranked by relevance.",
+		Description: "Search notes using keyword and semantic search. Returns matching notes ranked by relevance.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"query":   map[string]interface{}{"type": "string", "description": "Search query"},
-				"limit":   map[string]interface{}{"type": "integer", "description": "Maximum number of results", "default": 5},
+				"limit":   map[string]interface{}{"type": "integer", "description": "Maximum number of notes", "default": 5},
 				"project": map[string]interface{}{"type": "string", "description": "Filter by project"},
 				"source":  map[string]interface{}{"type": "string", "description": "Filter by source"},
 			},
@@ -125,11 +125,11 @@ func registerTools(s *mcpsdk.Server, svc pantryService) error {
 	}
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "pantry_context",
-		Description: "Get memory context for the current project. Returns prior decisions, bugs, and context.",
+		Description: "Get notes for the current project. Returns prior decisions, bugs, and context.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"limit":   map[string]interface{}{"type": "integer", "description": "Maximum number of items", "default": 10},
+				"limit":   map[string]interface{}{"type": "integer", "description": "Maximum number of notes", "default": 10},
 				"project": map[string]interface{}{"type": "string", "description": "Project name (defaults to current directory)"},
 				"source":  map[string]interface{}{"type": "string", "description": "Filter by source"},
 			},
@@ -246,10 +246,10 @@ func HandlePantryContext(svc pantryService, params map[string]interface{}) (map[
 		return nil, err
 	}
 
-	memories := make([]map[string]interface{}, len(results))
+	notes := make([]map[string]interface{}, len(results))
 	for i, r := range results {
 		dateStr := r.CreatedAt[:10]
-		memories[i] = map[string]interface{}{
+		notes[i] = map[string]interface{}{
 			"id":       r.ID,
 			"title":    r.Title,
 			"category": r.Category,
@@ -259,9 +259,9 @@ func HandlePantryContext(svc pantryService, params map[string]interface{}) (map[
 	}
 
 	return map[string]interface{}{
-		"total":    total,
-		"showing":  len(memories),
-		"memories": memories,
+		"total":   total,
+		"showing": len(notes),
+		"notes":   notes,
 	}, nil
 }
 

@@ -37,7 +37,7 @@ var configCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("memory_home: %s\n", home)
+		fmt.Printf("pantry_home: %s\n", home)
 		fmt.Println(string(data))
 	},
 }
@@ -73,5 +73,5 @@ var configInitCmd = &cobra.Command{
 
 func init() {
 	configCmd.AddCommand(configInitCmd)
-	configInitCmd.Flags().BoolVar(&configInitForce, "force", false, "Overwrite existing config")
+	configInitCmd.Flags().BoolVarP(&configInitForce, "force", "f", false, "Overwrite existing config")
 }

@@ -35,7 +35,7 @@ func WithStore(s db.Store) Option {
 // Service is the main orchestrator for pantry operations
 type Service struct {
 	pantryHome          string
-	vaultDir            string
+	shelvesDir            string
 	dbPath              string
 	configPath          string
 	ignorePath          string
@@ -59,14 +59,14 @@ func NewService(pantryHome string, opts ...Option) (*Service, error) {
 		pantryHome = config.GetPantryHome()
 	}
 
-	vaultDir := filepath.Join(pantryHome, "shelf")
+	shelvesDir := filepath.Join(pantryHome, "shelves")
 	dbPath := filepath.Join(pantryHome, "index.db")
 	configPath := filepath.Join(pantryHome, "config.yaml")
 	ignorePath := filepath.Join(pantryHome, ".pantryignore")
 
-	// Ensure vault directory exists
-	if err := os.MkdirAll(vaultDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create vault directory: %w", err)
+	// Ensure shelves directory exists
+	if err := os.MkdirAll(shelvesDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create shelves directory: %w", err)
 	}
 
 	// Load and validate configuration
@@ -92,7 +92,7 @@ func NewService(pantryHome string, opts ...Option) (*Service, error) {
 
 	svc := &Service{
 		pantryHome:     pantryHome,
-		vaultDir:       vaultDir,
+		shelvesDir:       shelvesDir,
 		dbPath:         dbPath,
 		configPath:     configPath,
 		ignorePath:     ignorePath,
@@ -133,10 +133,10 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]int
 	}
 
 	today := time.Now().UTC().Format("2006-01-02")
-	vaultProjectDir := filepath.Join(s.vaultDir, project)
+	projectDir := filepath.Join(s.shelvesDir, project)
 
 	// Ensure project directory exists
-	if err := os.MkdirAll(vaultProjectDir, 0755); err != nil {
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create project directory: %w", err)
 	}
 
@@ -200,11 +200,11 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]int
 	}
 
 	// Normal save path: create new item
-	filePath := filepath.Join(vaultProjectDir, fmt.Sprintf("%s-session.md", today))
+	filePath := filepath.Join(projectDir, fmt.Sprintf("%s-notes.md", today))
 	item := models.FromRaw(raw, project, filePath)
 
 	// Write markdown file
-	if _, err := storage.WriteSessionItem(vaultProjectDir, item, today, raw.Details); err != nil {
+	if _, err := storage.WriteNoteItem(projectDir, item, today, raw.Details); err != nil {
 		return nil, fmt.Errorf("failed to write session file: %w", err)
 	}
 

@@ -12,25 +12,25 @@ import (
 )
 
 var (
-	sessionsLimit   int
-	sessionsProject string
+	logLimit   int
+	logProject string
 )
 
-var sessionsCmd = &cobra.Command{
-	Use:   "sessions",
-	Short: "List recent sessions",
+var logCmd = &cobra.Command{
+	Use:   "log",
+	Short: "List daily note logs",
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
-		vaultDir := filepath.Join(home, "shelf")
+		shelfDir := filepath.Join(home, "shelves")
 
-		sessionFiles := []struct {
+		logFiles := []struct {
 			project string
 			fname   string
 		}{}
 
-		entries, err := os.ReadDir(vaultDir)
+		entries, err := os.ReadDir(shelfDir)
 		if err != nil {
-			fmt.Println("No sessions found.")
+			fmt.Println("No logs found.")
 			return
 		}
 
@@ -39,8 +39,8 @@ var sessionsCmd = &cobra.Command{
 				continue
 			}
 
-			projDir := filepath.Join(vaultDir, entry.Name())
-			if sessionsProject != "" && entry.Name() != sessionsProject {
+			projDir := filepath.Join(shelfDir, entry.Name())
+			if logProject != "" && entry.Name() != logProject {
 				continue
 			}
 
@@ -50,8 +50,8 @@ var sessionsCmd = &cobra.Command{
 			}
 
 			for _, f := range files {
-				if strings.HasSuffix(f.Name(), "-session.md") {
-					sessionFiles = append(sessionFiles, struct {
+				if strings.HasSuffix(f.Name(), "-notes.md") {
+					logFiles = append(logFiles, struct {
 						project string
 						fname   string
 					}{entry.Name(), f.Name()})
@@ -59,28 +59,28 @@ var sessionsCmd = &cobra.Command{
 			}
 		}
 
-		if len(sessionFiles) == 0 {
-			fmt.Println("No sessions found.")
+		if len(logFiles) == 0 {
+			fmt.Println("No logs found.")
 			return
 		}
 
 		// Sort by filename (date) descending
-		sort.Slice(sessionFiles, func(i, j int) bool {
-			return sessionFiles[i].fname > sessionFiles[j].fname
+		sort.Slice(logFiles, func(i, j int) bool {
+			return logFiles[i].fname > logFiles[j].fname
 		})
 
-		fmt.Println("\nSessions:")
-		for i, sf := range sessionFiles {
-			if i >= sessionsLimit {
+		fmt.Println("\nLogs:")
+		for i, lf := range logFiles {
+			if i >= logLimit {
 				break
 			}
-			dateStr := strings.Replace(sf.fname, "-session.md", "", 1)
-			fmt.Printf("  %s | %s\n", dateStr, sf.project)
+			dateStr := strings.Replace(lf.fname, "-notes.md", "", 1)
+			fmt.Printf("  %s | %s\n", dateStr, lf.project)
 		}
 	},
 }
 
 func init() {
-	sessionsCmd.Flags().IntVar(&sessionsLimit, "limit", 10, "Maximum number of sessions to show")
-	sessionsCmd.Flags().StringVar(&sessionsProject, "project", "", "Filter by project name")
+	logCmd.Flags().IntVarP(&logLimit, "limit", "n", 10, "Maximum number of logs to show")
+	logCmd.Flags().StringVarP(&logProject, "project", "p", "", "Filter by project name")
 }

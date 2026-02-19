@@ -1,10 +1,10 @@
-# Pantry — Agent Memory System
+# Pantry — Agent Notes
 
-You have persistent memory across sessions. USE IT.
+You have persistent notes across sessions. USE THEM.
 
 ## Session start — MANDATORY
 
-Before doing ANY work, retrieve context from previous sessions:
+Before doing ANY work, retrieve notes from previous sessions:
 
 ```bash
 pantry list --project
@@ -13,20 +13,20 @@ pantry list --project
 If the user's request relates to a specific topic, also search for it:
 
 ```bash
-pantry search "<relevant terms>"
+pantry search "<relevant terms>" --project
 ```
 
-When search results show "Details: available", fetch them:
+When search results show "Details: available", retrieve them:
 
 ```bash
-pantry retrieve <memory-id>
+pantry retrieve <note-id>
 ```
 
 Do not skip this step. Prior sessions may contain decisions, bugs, and context that directly affect your current task.
 
 ## Session end — MANDATORY
 
-Before ending your response to ANY task that involved making changes, debugging, deciding, or learning something, you MUST save a memory. This is not optional. If you did meaningful work, save it.
+Before ending your response to ANY task that involved making changes, debugging, deciding, or learning something, you MUST store a note. This is not optional. If you did meaningful work, store it.
 
 ```bash
 pantry store \
@@ -37,7 +37,7 @@ pantry store \
   --tags "tag1,tag2,tag3" \
   --category "<category>" \
   --related-files "path/to/file1,path/to/file2" \
-  --source "cursor" \
+  --source "<your-agent-id>" \
   --details "Full context with all important details. Be thorough.
              Include alternatives considered, tradeoffs, config values,
              and anything someone would need to understand this fully later."
@@ -45,11 +45,13 @@ pantry store \
 
 Categories: `decision`, `bug`, `pattern`, `context`, `learning`.
 
-Use `--source` to identify the agent: `claude-code`, `codex`, `cursor`, or `opencode`.
+Set `--source` to your agent identifier: `claude-code`, `codex`, `cursor`, or `opencode`.
 
-### What to save
+`--project` defaults to the current directory name — only set it explicitly if storing a note for a different project.
 
-You MUST save when any of these happen:
+### What to store
+
+You MUST store a note when any of these happen:
 
 - You made an architectural or design decision
 - You fixed a bug (include root cause and solution)
@@ -59,11 +61,11 @@ You MUST save when any of these happen:
 - You learned something about the codebase that isn't in the code
 - The user corrected you or clarified a requirement
 
-### What NOT to save
+### What NOT to store
 
 - Trivial changes (typo fixes, formatting)
 - Information that's already obvious from reading the code
-- Duplicate of an existing memory (search first)
+- Duplicate of an existing note (search first)
 
 ## Agent setup (recommended)
 
@@ -89,14 +91,14 @@ go test ./...
 ./testing/test-pantry.sh   # full CLI integration test (uses temp dir)
 ```
 
-Unit tests: `internal/redaction`, `internal/models`, `internal/config`, `internal/storage`.  
+Unit tests: `internal/redaction`, `internal/models`, `internal/config`, `internal/storage`.
 Integration tests: `internal/core`, `internal/db` (require DB).
 
 ## Rules
 
-- Retrieve before working. Save before finishing. No exceptions.
+- Retrieve before working. Store before finishing. No exceptions.
 - Always capture thorough details — write for a future agent with no context.
 - Never include API keys, secrets, or credentials.
 - Wrap sensitive values in `<redacted>` tags.
-- Search before saving to avoid duplicates.
-- One memory per distinct decision or event. Don't bundle unrelated things.
+- Search before storing to avoid duplicates.
+- One note per distinct decision or event. Don't bundle unrelated things.

@@ -84,9 +84,9 @@ var uninstallCmd = &cobra.Command{
 
 func init() {
 	setupCmd.Flags().StringVar(&setupConfigDir, "config-dir", "", "Path to agent config directory")
-	setupCmd.Flags().BoolVar(&setupProject, "project", false, "Install in current project instead of globally")
+	setupCmd.Flags().BoolVarP(&setupProject, "project", "p", false, "Install in current project instead of globally")
 	uninstallCmd.Flags().StringVar(&setupConfigDir, "config-dir", "", "Path to agent config directory")
-	uninstallCmd.Flags().BoolVar(&setupProject, "project", false, "Uninstall from current project instead of globally")
+	uninstallCmd.Flags().BoolVarP(&setupProject, "project", "p", false, "Uninstall from current project instead of globally")
 }
 
 func resolveConfigDir(agentDotDir string, configDir string, project bool) string {
@@ -228,12 +228,12 @@ args = ["mcp"]
 	}
 
 	// Add to AGENTS.md
-	agentsEntry := "## Pantry Memory System\n\n" +
-		"You have access to a persistent memory system via Pantry. Use it to save important decisions, patterns, bugs, context, and learnings.\n\n" +
+	agentsEntry := "## Pantry\n\n" +
+		"You have access to a persistent note storage system via Pantry. Use it to store important decisions, patterns, bugs, context, and learnings.\n\n" +
 		"### Commands\n" +
-		"- `pantry store` - Save a memory\n" +
-		"- `pantry search` - Search memories\n" +
-		"- `pantry list` - List recent memories\n"
+		"- `pantry store` - Store a note\n" +
+		"- `pantry search` - Search notes\n" +
+		"- `pantry list` - List recent notes\n"
 
 	file2, err := os.OpenFile(agentsPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {

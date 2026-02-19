@@ -8,7 +8,7 @@ import (
 	"pantry/internal/models"
 )
 
-func TestWriteSessionItem(t *testing.T) {
+func TestWriteNoteItem(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectDir := filepath.Join(tmpDir, "test-project")
 	os.MkdirAll(projectDir, 0755)
@@ -18,25 +18,25 @@ func TestWriteSessionItem(t *testing.T) {
 		Title:         "Test Item",
 		What:          "This is a test",
 		Project:       "test-project",
-		FilePath:      filepath.Join(projectDir, "2026-01-01-session.md"),
+		FilePath:      filepath.Join(projectDir, "2026-01-01-notes.md"),
 		SectionAnchor: "test-item",
 		CreatedAt:     "2026-01-01T00:00:00Z",
 		UpdatedAt:     "2026-01-01T00:00:00Z",
 	}
 
 	details := "Full details here"
-	filePath, err := WriteSessionItem(projectDir, item, "2026-01-01", &details)
+	filePath, err := WriteNoteItem(projectDir, item, "2026-01-01", &details)
 	if err != nil {
-		t.Fatalf("WriteSessionItem() error = %v", err)
+		t.Fatalf("WriteNoteItem() error = %v", err)
 	}
 
 	if filePath == "" {
-		t.Error("WriteSessionItem() should return file path")
+		t.Error("WriteNoteItem() should return file path")
 	}
 
 	// Verify file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		t.Errorf("WriteSessionItem() file does not exist: %s", filePath)
+		t.Errorf("WriteNoteItem() file does not exist: %s", filePath)
 	}
 
 	// Verify file content

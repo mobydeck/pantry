@@ -10,7 +10,7 @@ import (
 
 var removeCmd = &cobra.Command{
 	Use:   "remove [id]",
-	Short: "Remove an item from pantry",
+	Short: "Remove a note from the pantry",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		itemID := args[0]
@@ -29,9 +29,9 @@ var removeCmd = &cobra.Command{
 		}
 
 		if deleted {
-			fmt.Printf("Removed item %s\n", itemID)
+			fmt.Printf("Removed note %s\n", itemID)
 		} else {
-			fmt.Printf("No item found for %s\n", itemID)
+			fmt.Printf("No note found for %s\n", itemID)
 		}
 	},
 }

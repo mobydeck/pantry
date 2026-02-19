@@ -12,12 +12,12 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize the pantry vault",
+	Short: "Initialize the pantry",
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
-		vaultDir := filepath.Join(home, "shelf")
-		if err := os.MkdirAll(vaultDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to create vault directory: %v\n", err)
+		shelfDir := filepath.Join(home, "shelves")
+		if err := os.MkdirAll(shelfDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to create shelves directory: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -36,6 +36,6 @@ var initCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Pantry vault initialized at %s\n", home)
+		fmt.Printf("Pantry initialized at %s\n", home)
 	},
 }

@@ -89,7 +89,7 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
-	searchCmd.Flags().IntVar(&searchLimit, "limit", 5, "Maximum number of results")
-	searchCmd.Flags().BoolVar(&searchProject, "project", false, "Filter to current project")
-	searchCmd.Flags().StringVar(&searchSource, "source", "", "Filter by source")
+	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "Maximum number of results")
+	searchCmd.Flags().BoolVarP(&searchProject, "project", "p", false, "Filter to current project")
+	searchCmd.Flags().StringVarP(&searchSource, "source", "s", "", "Filter by source")
 }

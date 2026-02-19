@@ -25,7 +25,7 @@ var (
 
 var storeCmd = &cobra.Command{
 	Use:   "store",
-	Short: "Store an item in the pantry",
+	Short: "Store a note in the pantry",
 	Run: func(cmd *cobra.Command, args []string) {
 		if storeTitle == "" || storeWhat == "" {
 			fmt.Fprintf(os.Stderr, "Error: --title and --what are required\n")
@@ -88,14 +88,14 @@ var storeCmd = &cobra.Command{
 }
 
 func init() {
-	storeCmd.Flags().StringVar(&storeTitle, "title", "", "Title of the item (required)")
-	storeCmd.Flags().StringVar(&storeWhat, "what", "", "What happened or was learned (required)")
-	storeCmd.Flags().StringVar(&storeWhy, "why", "", "Why it matters")
-	storeCmd.Flags().StringVar(&storeImpact, "impact", "", "Impact or consequences")
-	storeCmd.Flags().StringVar(&storeTags, "tags", "", "Comma-separated tags")
-	storeCmd.Flags().StringVar(&storeCategory, "category", "", "Category (decision, pattern, bug, context, learning)")
+	storeCmd.Flags().StringVarP(&storeTitle, "title", "t", "", "Title of the note (required)")
+	storeCmd.Flags().StringVarP(&storeWhat, "what", "w", "", "What happened or was learned (required)")
+	storeCmd.Flags().StringVarP(&storeWhy, "why", "y", "", "Why it matters")
+	storeCmd.Flags().StringVarP(&storeImpact, "impact", "i", "", "Impact or consequences")
+	storeCmd.Flags().StringVarP(&storeTags, "tags", "g", "", "Comma-separated tags")
+	storeCmd.Flags().StringVarP(&storeCategory, "category", "c", "", "Category (decision, pattern, bug, context, learning)")
 	storeCmd.Flags().StringVar(&storeRelatedFiles, "related-files", "", "Comma-separated file paths")
-	storeCmd.Flags().StringVar(&storeDetails, "details", "", "Extended details or context")
-	storeCmd.Flags().StringVar(&storeSource, "source", "", "Source of the item")
-	storeCmd.Flags().StringVar(&storeProject, "project", "", "Project name (defaults to current directory)")
+	storeCmd.Flags().StringVarP(&storeDetails, "details", "d", "", "Extended details or context")
+	storeCmd.Flags().StringVarP(&storeSource, "source", "s", "", "Source of the note")
+	storeCmd.Flags().StringVarP(&storeProject, "project", "p", "", "Project name (defaults to current directory)")
 }

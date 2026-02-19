@@ -10,7 +10,7 @@ PANTRY_BIN="${PANTRY_BIN:-go run ./cmd/pantry}"
 FAILED=0
 PASSED=0
 
-# Create temp dir for test vault
+# Create temp dir for test pantry
 TEST_HOME=$(mktemp -d 2>/dev/null || mktemp -d -t pantry-test)
 trap 'rm -rf "$TEST_HOME"' EXIT
 
@@ -72,10 +72,10 @@ run_not_contains() {
 
 # --- init ---
 echo "--- init ---"
-run "init creates vault" $PANTRY_BIN init
+run "init creates pantry" $PANTRY_BIN init
 run_contains "init creates index.db" "index.db" ls "$TEST_HOME"
 run_contains "init creates config.yaml" "config.yaml" ls "$TEST_HOME"
-run_contains "init creates shelf dir" "shelf" ls "$TEST_HOME"
+run_contains "init creates shelves dir" "shelves" ls "$TEST_HOME"
 
 # Use config that disables embeddings (avoids vec0/sqlite-vec dependency in CI)
 cat > "$TEST_HOME/config.yaml" << 'EOF'

@@ -19,7 +19,7 @@ var (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List recent items",
+	Short: "List recent notes",
 	Run: func(cmd *cobra.Command, args []string) {
 		svc, err := core.NewService("")
 		if err != nil {
@@ -52,11 +52,11 @@ var listCmd = &cobra.Command{
 		}
 
 		if len(results) == 0 {
-			fmt.Println("No items found.")
+			fmt.Println("No notes found.")
 			return
 		}
 
-		fmt.Printf("Available items (%d total, showing %d):\n", total, len(results))
+		fmt.Printf("Notes (%d total, showing %d):\n", total, len(results))
 
 		for _, r := range results {
 			dateStr := r.CreatedAt[:10]
@@ -78,13 +78,13 @@ var listCmd = &cobra.Command{
 			fmt.Printf("- [%s] %s%s%s\n", dateDisplay, r.Title, cat, tags)
 		}
 
-		fmt.Println("\nUse `pantry search <query>` for full details on any item.")
+		fmt.Println("\nUse `pantry search <query>` to search notes, `pantry retrieve <id>` for full details.")
 	},
 }
 
 func init() {
-	listCmd.Flags().IntVar(&listLimit, "limit", 10, "Maximum number of items")
-	listCmd.Flags().BoolVar(&listProject, "project", false, "Filter to current project")
-	listCmd.Flags().StringVar(&listSource, "source", "", "Filter by source")
-	listCmd.Flags().StringVar(&listQuery, "query", "", "Search query for filtering")
+	listCmd.Flags().IntVarP(&listLimit, "limit", "n", 10, "Maximum number of notes")
+	listCmd.Flags().BoolVarP(&listProject, "project", "p", false, "Filter to current project")
+	listCmd.Flags().StringVarP(&listSource, "source", "s", "", "Filter by source")
+	listCmd.Flags().StringVarP(&listQuery, "query", "q", "", "Search query for filtering")
 }

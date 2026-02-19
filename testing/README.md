@@ -1,6 +1,6 @@
 # Pantry Test Suite
 
-Integration tests for the pantry CLI. Exercises all subcommands with a temporary vault.
+Integration tests for the pantry CLI. Exercises all subcommands with a temporary pantry.
 
 ## Run
 
@@ -18,7 +18,7 @@ PANTRY_BIN=./pantry ./testing/test-pantry.sh
 
 ## What it tests
 
-- **init** — Creates vault, index.db, config.yaml, shelf
+- **init** — Creates shelves, index.db, config.yaml
 - **store** — Basic store, with details, with related-files, validation (requires --title/--what)
 - **search** — Keyword search, limit, result content
 - **list** — Recent items, limit

@@ -19,9 +19,9 @@ var reindexCmd = &cobra.Command{
 		}
 		defer svc.Close()
 
-		// Check if there are any items
+		// Check if there are any notes
 		// Simplified - would need to get count from service
-		fmt.Println("Reindexing items...")
+		fmt.Println("Reindexing notes...")
 
 		progressCallback := func(current, total int) {
 			fmt.Printf("  %d/%d\r", current, total)
@@ -36,7 +36,7 @@ var reindexCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Re-indexed %v items with %v (%v dims)\n",
+		fmt.Printf("Re-indexed %v notes with %v (%v dims)\n",
 			result["count"], result["model"], result["dim"])
 	},
 }

@@ -11,26 +11,26 @@ import (
 	"pantry/internal/models"
 )
 
-// WriteSessionItem writes an item to a session file
-func WriteSessionItem(vaultProjectDir string, item models.Item, dateStr string, details *string) (string, error) {
-	filePath := filepath.Join(vaultProjectDir, fmt.Sprintf("%s-session.md", dateStr))
+// WriteNoteItem writes an item to a daily notes file
+func WriteNoteItem(projectDir string, item models.Item, dateStr string, details *string) (string, error) {
+	filePath := filepath.Join(projectDir, fmt.Sprintf("%s-notes.md", dateStr))
 	sectionContent := renderSection(item, details)
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		// Create new file
-		content := createNewSessionFile(item, dateStr, sectionContent)
+		content := createNewNotesFile(item, dateStr, sectionContent)
 		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-			return "", fmt.Errorf("failed to write session file: %w", err)
+			return "", fmt.Errorf("failed to write notes file: %w", err)
 		}
 	} else {
 		// Append to existing file
 		existingContent, err := os.ReadFile(filePath)
 		if err != nil {
-			return "", fmt.Errorf("failed to read session file: %w", err)
+			return "", fmt.Errorf("failed to read notes file: %w", err)
 		}
-		updatedContent := appendToSessionFile(string(existingContent), item, sectionContent)
+		updatedContent := appendToNotesFile(string(existingContent), item, sectionContent)
 		if err := os.WriteFile(filePath, []byte(updatedContent), 0644); err != nil {
-			return "", fmt.Errorf("failed to update session file: %w", err)
+			return "", fmt.Errorf("failed to update notes file: %w", err)
 		}
 	}
 
@@ -65,8 +65,8 @@ func renderSection(item models.Item, details *string) string {
 	return strings.Join(lines, "\n")
 }
 
-// createNewSessionFile creates a new session file with frontmatter and initial content
-func createNewSessionFile(item models.Item, dateStr string, sectionContent string) string {
+// createNewNotesFile creates a new notes file with frontmatter and initial content
+func createNewNotesFile(item models.Item, dateStr string, sectionContent string) string {
 	now := time.Now().UTC().Format(time.RFC3339)
 	sources := []string{}
 	if item.Source != nil {
@@ -88,7 +88,7 @@ func createNewSessionFile(item models.Item, dateStr string, sectionContent strin
 	}
 	lines = append(lines, "---")
 	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("# %s Session", dateStr))
+	lines = append(lines, fmt.Sprintf("# %s Notes", dateStr))
 	lines = append(lines, "")
 
 	if item.Category != nil {
@@ -102,8 +102,8 @@ func createNewSessionFile(item models.Item, dateStr string, sectionContent strin
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// appendToSessionFile appends item to existing session file, updating frontmatter and structure
-func appendToSessionFile(content string, item models.Item, sectionContent string) string {
+// appendToNotesFile appends item to existing notes file, updating frontmatter and structure
+func appendToNotesFile(content string, item models.Item, sectionContent string) string {
 	// Split frontmatter and body
 	frontmatter, body := splitFrontmatter(content)
 

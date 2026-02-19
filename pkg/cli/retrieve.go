@@ -10,7 +10,7 @@ import (
 
 var retrieveCmd = &cobra.Command{
 	Use:   "retrieve [id]",
-	Short: "Retrieve full details for an item",
+	Short: "Retrieve full details for a note",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		itemID := args[0]
@@ -29,7 +29,7 @@ var retrieveCmd = &cobra.Command{
 		}
 
 		if detail == nil {
-			fmt.Printf("No details found for item %s\n", itemID)
+			fmt.Printf("No details found for note %s\n", itemID)
 			return
 		}
 
