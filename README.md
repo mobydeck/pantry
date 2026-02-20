@@ -4,7 +4,7 @@ Local note storage for coding agents. Your agent keeps notes on decisions, bugs,
 
 ## Features
 
-- **Works with multiple agents** — Claude Code, Cursor, Codex, OpenCode. One command sets up MCP config for your agent.
+- **Works with multiple agents** — Claude Code, Cursor, Codex, OpenCode, RooCode. One command sets up MCP config for your agent.
 - **MCP native** — Runs as an MCP server exposing `pantry_store`, `pantry_search`, and `pantry_context` as tools.
 - **Local-first** — Everything stays on your machine. Notes are stored as Markdown in `~/.pantry/shelves/`, readable in Obsidian or any editor.
 - **Zero idle cost** — No background processes, no daemon, no RAM overhead. The MCP server only runs when the agent starts it.
@@ -44,12 +44,36 @@ pantry init
 ### Connect your agent
 
 ```bash
-pantry setup claude-code   # or: cursor, codex, opencode
+pantry setup claude-code   # or: cursor, codex, opencode, roocode
 ```
 
 This writes the MCP server entry into your agent's config file. Restart the agent and pantry will be available as a tool.
 
 Run `pantry doctor` to verify everything is working.
+
+### Tell your agent to use Pantry
+
+MCP registration makes the tools available, but your agent also needs instructions to actually use them. The `setup` command installs a skill file automatically for agents that support it (Claude Code, Cursor, Codex). For other agents — or if you prefer to use a project-level rules file — add the following to your `AGENTS.md`, `.rules`, `CLAUDE.md`, or equivalent:
+
+```markdown
+## Pantry — persistent notes
+
+You have access to a persistent note storage system via the `pantry` MCP tools.
+
+**Session start — MANDATORY**: Before doing any work, retrieve notes from previous sessions:
+- Call `pantry_context` to get recent notes for this project
+- If the request relates to a specific topic, also call `pantry_search` with relevant terms
+
+**Session end — MANDATORY**: After any task that involved changes, decisions, bugs, or learnings, call `pantry_store` with:
+- `title`: short descriptive title
+- `what`: what happened or was decided
+- `why`: reasoning behind it
+- `impact`: what changed
+- `category`: one of `decision`, `pattern`, `bug`, `context`, `learning`
+- `details`: full context for a future agent with no prior knowledge
+
+Do not skip either step. Notes are how context survives across sessions.
+```
 
 ## Semantic search (optional)
 

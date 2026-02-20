@@ -50,7 +50,7 @@ pantry store \
 
 Categories: `decision`, `bug`, `pattern`, `context`, `learning`.
 
-Set `--source` to your agent identifier: `claude-code`, `codex`, `cursor`, or `opencode`.
+Set `--source` to your agent identifier: `claude-code`, `codex`, `cursor`, `opencode`, or `roocode`.
 
 `--project` defaults to the current directory name — only set it explicitly if storing a note for a different project.
 
@@ -77,7 +77,7 @@ You MUST store a note when any of these happen:
 Run once to auto-install hooks for your agent:
 
 ```bash
-pantry setup claude-code   # or: cursor, codex, opencode
+pantry setup claude-code   # or: cursor, codex, opencode, roocode
 ```
 
 To remove: `pantry uninstall claude-code`

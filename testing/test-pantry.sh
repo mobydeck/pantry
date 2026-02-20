@@ -186,6 +186,10 @@ SETUP_DIR="$TEST_HOME/fake-agent-config"
 mkdir -p "$SETUP_DIR"
 run_contains "setup cursor with test config-dir" "Installed\|Pantry" $PANTRY_BIN setup cursor --config-dir "$SETUP_DIR"
 run "uninstall cursor with test config-dir" $PANTRY_BIN uninstall cursor --config-dir "$SETUP_DIR"
+run_contains "setup roocode with test config-dir" "Installed\|Pantry" $PANTRY_BIN setup roocode --config-dir "$SETUP_DIR"
+run_contains "setup roocode creates mcp.json" "mcp.json" ls "$SETUP_DIR"
+run "uninstall roocode with test config-dir" $PANTRY_BIN uninstall roocode --config-dir "$SETUP_DIR"
+run "setup roocode without --project fails" sh -c '! '"$PANTRY_BIN"' setup roocode 2>/dev/null'
 
 # --- mcp (verify it starts) ---
 echo ""

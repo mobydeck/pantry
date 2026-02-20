@@ -34,9 +34,11 @@ var setupCmd = &cobra.Command{
 			result, err = setupCodex(setupConfigDir, setupProject)
 		case "opencode":
 			result, err = setupOpenCode(setupProject)
+		case "roo", "roocode":
+			result, err = setupRooCode(setupConfigDir, setupProject)
 		default:
 			fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
-			fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode\n")
+			fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode, roocode\n")
 			os.Exit(1)
 		}
 
@@ -68,9 +70,11 @@ var uninstallCmd = &cobra.Command{
 			result, err = uninstallCodex(setupConfigDir, setupProject)
 		case "opencode":
 			result, err = uninstallOpenCode(setupProject)
+		case "roo", "roocode":
+			result, err = uninstallRooCode(setupConfigDir, setupProject)
 		default:
 			fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
-			fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode\n")
+			fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode, roocode\n")
 			os.Exit(1)
 		}
 
@@ -485,6 +489,99 @@ func uninstallOpenCode(project bool) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
 
+	if err := os.WriteFile(configPath, newData, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return map[string]string{
+		"message": fmt.Sprintf("Removed Pantry from %s", configPath),
+	}, nil
+}
+
+func setupRooCode(configDir string, project bool) (map[string]string, error) {
+	var target string
+	if configDir != "" {
+		target = configDir
+	} else if project {
+		cwd, _ := os.Getwd()
+		target = filepath.Join(cwd, ".roo")
+	} else {
+		return nil, fmt.Errorf("RooCode global MCP config is managed via VS Code settings.\nUse --project (-p) to install in the current project's .roo/mcp.json instead")
+	}
+
+	configPath := filepath.Join(target, "mcp.json")
+
+	var config map[string]interface{}
+	if data, err := os.ReadFile(configPath); err == nil {
+		if err := json.Unmarshal(data, &config); err != nil {
+			return nil, fmt.Errorf("failed to parse existing config: %w", err)
+		}
+	} else {
+		config = make(map[string]interface{})
+	}
+
+	mcpServers, _ := config["mcpServers"].(map[string]interface{})
+	if mcpServers == nil {
+		mcpServers = make(map[string]interface{})
+		config["mcpServers"] = mcpServers
+	}
+	mcpServers["pantry"] = map[string]interface{}{
+		"command": "pantry",
+		"args":    []string{"mcp"},
+	}
+
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return map[string]string{
+		"message": fmt.Sprintf("Installed Pantry MCP server in %s", configPath),
+	}, nil
+}
+
+func uninstallRooCode(configDir string, project bool) (map[string]string, error) {
+	var target string
+	if configDir != "" {
+		target = configDir
+	} else if project {
+		cwd, _ := os.Getwd()
+		target = filepath.Join(cwd, ".roo")
+	} else {
+		return nil, fmt.Errorf("RooCode global MCP config is managed via VS Code settings.\nUse --project (-p) to uninstall from the current project's .roo/mcp.json instead")
+	}
+
+	configPath := filepath.Join(target, "mcp.json")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return map[string]string{"message": "Pantry not found in RooCode config"}, nil
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config: %w", err)
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
+		delete(mcpServers, "pantry")
+	}
+
+	newData, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
 	if err := os.WriteFile(configPath, newData, 0644); err != nil {
 		return nil, fmt.Errorf("failed to write config: %w", err)
 	}
