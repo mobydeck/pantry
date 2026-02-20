@@ -85,6 +85,61 @@ After changing providers, rebuild the vector index:
 pantry reindex
 ```
 
+## Environment variables
+
+All config file values can be overridden with environment variables. They take precedence over `~/.pantry/config.yaml` and are useful when the MCP host injects secrets into the environment instead of writing them to disk.
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `PANTRY_HOME` | Override pantry home directory | `/data/pantry` |
+| `PANTRY_EMBEDDING_PROVIDER` | Embedding provider | `ollama`, `openai`, `openrouter` |
+| `PANTRY_EMBEDDING_MODEL` | Embedding model name | `text-embedding-3-small` |
+| `PANTRY_EMBEDDING_API_KEY` | API key for the embedding provider | `sk-...` |
+| `PANTRY_EMBEDDING_BASE_URL` | Base URL for the embedding API | `http://localhost:11434` |
+| `PANTRY_CONTEXT_SEMANTIC` | Semantic search mode | `auto`, `always`, `never` |
+
+### Examples
+
+Use OpenAI embeddings without putting the key in the config file:
+
+```bash
+PANTRY_EMBEDDING_PROVIDER=openai \
+PANTRY_EMBEDDING_MODEL=text-embedding-3-small \
+PANTRY_EMBEDDING_API_KEY=sk-... \
+pantry search "rate limiting"
+```
+
+Point a second pantry instance at a different directory (useful for testing or per-workspace isolation):
+
+```bash
+PANTRY_HOME=/tmp/pantry-test pantry init
+PANTRY_HOME=/tmp/pantry-test pantry store -t "test note" -w "testing" -y "because"
+```
+
+Pass the API key through the MCP server config so it is injected at launch time rather than stored on disk. Example for Claude Code (`~/.claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "pantry": {
+      "command": "pantry",
+      "args": ["mcp"],
+      "env": {
+        "PANTRY_EMBEDDING_PROVIDER": "openai",
+        "PANTRY_EMBEDDING_MODEL": "text-embedding-3-small",
+        "PANTRY_EMBEDDING_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+```
+
+Disable semantic search entirely for a single invocation (falls back to FTS5 keyword search):
+
+```bash
+PANTRY_CONTEXT_SEMANTIC=never pantry search "connection pool"
+```
+
 ## Commands
 
 ```
