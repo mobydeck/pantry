@@ -32,8 +32,8 @@ func NewOpenAIProvider(model string, apiKey string, baseURL string) *OpenAIProvi
 }
 
 // Embed generates an embedding vector using the OpenAI embeddings API.
-func (p *OpenAIProvider) Embed(text string) ([]float32, error) {
-	resp, err := p.client.Embeddings.New(context.Background(), openai.EmbeddingNewParams{
+func (p *OpenAIProvider) Embed(ctx context.Context, text string) ([]float32, error) {
+	resp, err := p.client.Embeddings.New(ctx, openai.EmbeddingNewParams{
 		Model: openai.EmbeddingModel(p.model),
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfArrayOfStrings: []string{text},

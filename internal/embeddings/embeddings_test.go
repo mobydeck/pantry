@@ -1,6 +1,7 @@
 package embeddings
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +42,7 @@ func TestOllamaProvider_Embed_Success(t *testing.T) {
 	defer srv.Close()
 
 	p := NewOllamaProvider("nomic-embed-text", srv.URL)
-	embedding, err := p.Embed("hello world")
+	embedding, err := p.Embed(context.Background(), "hello world")
 	if err != nil {
 		t.Fatalf("Embed() error = %v", err)
 	}
@@ -60,7 +61,7 @@ func TestOllamaProvider_Embed_HTTPError(t *testing.T) {
 	defer srv.Close()
 
 	p := NewOllamaProvider("model", srv.URL)
-	_, err := p.Embed("text")
+	_, err := p.Embed(context.Background(), "text")
 	if err == nil {
 		t.Fatal("Embed() should return error on non-200 response")
 	}
@@ -69,7 +70,7 @@ func TestOllamaProvider_Embed_HTTPError(t *testing.T) {
 func TestOllamaProvider_Embed_ConnectionRefused(t *testing.T) {
 	// Point at a port that isn't listening
 	p := NewOllamaProvider("model", "http://127.0.0.1:1")
-	_, err := p.Embed("text")
+	_, err := p.Embed(context.Background(), "text")
 	if err == nil {
 		t.Fatal("Embed() should return error when connection is refused")
 	}
@@ -98,7 +99,7 @@ func TestOpenAIProvider_Embed_Success(t *testing.T) {
 	defer srv.Close()
 
 	p := NewOpenAIProvider("text-embedding-3-small", "test-key", srv.URL)
-	embedding, err := p.Embed("hello")
+	embedding, err := p.Embed(context.Background(), "hello")
 	if err != nil {
 		t.Fatalf("Embed() error = %v", err)
 	}
@@ -114,7 +115,7 @@ func TestOpenAIProvider_Embed_HTTPError(t *testing.T) {
 	defer srv.Close()
 
 	p := NewOpenAIProvider("model", "bad-key", srv.URL)
-	_, err := p.Embed("text")
+	_, err := p.Embed(context.Background(), "text")
 	if err == nil {
 		t.Fatal("Embed() should return error on non-200 response")
 	}
@@ -130,7 +131,7 @@ func TestOpenAIProvider_Embed_EmptyDataArray(t *testing.T) {
 	defer srv.Close()
 
 	p := NewOpenAIProvider("model", "key", srv.URL)
-	_, err := p.Embed("text")
+	_, err := p.Embed(context.Background(), "text")
 	if err == nil {
 		t.Fatal("Embed() should return error when data array is empty")
 	}

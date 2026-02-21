@@ -7,6 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/modelcontextprotocol/go-sdk v1.3.1
 	github.com/ncruces/go-sqlite3/gormlite v0.20.3
+	github.com/openai/openai-go v1.12.0
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/gorm v1.31.1
@@ -19,7 +20,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/ncruces/go-sqlite3 v0.20.3 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
-	github.com/openai/openai-go v1.12.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.3 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect

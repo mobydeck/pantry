@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"sort"
 
 	"pantry/internal/db"
@@ -74,7 +75,7 @@ func MergeResults(ftsResults []models.SearchResult, vecResults []models.SearchRe
 }
 
 // TieredSearch performs FTS-first tiered search that only calls embed when FTS results are sparse
-func TieredSearch(store db.Store, embeddingProvider embeddings.Provider, query string, limit int, minFTSResults int, project *string, source *string) ([]models.SearchResult, error) {
+func TieredSearch(ctx context.Context, store db.Store, embeddingProvider embeddings.Provider, query string, limit int, minFTSResults int, project *string, source *string) ([]models.SearchResult, error) {
 	ftsResults, err := store.FTSSearch(query, limit*2, project, source)
 	if err != nil {
 		return nil, err
@@ -99,7 +100,7 @@ func TieredSearch(store db.Store, embeddingProvider embeddings.Provider, query s
 	}
 
 	// FTS results are sparse — fall back to hybrid (embed + vector search + merge)
-	queryVec, err := embeddingProvider.Embed(query)
+	queryVec, err := embeddingProvider.Embed(ctx, query)
 	if err != nil {
 		// On any embedding error, return whatever FTS found
 		if len(ftsResults) > limit {
@@ -121,7 +122,7 @@ func TieredSearch(store db.Store, embeddingProvider embeddings.Provider, query s
 }
 
 // HybridSearch runs FTS5 and optionally vector search, merges results
-func HybridSearch(store db.Store, embeddingProvider embeddings.Provider, query string, limit int, project *string, source *string) ([]models.SearchResult, error) {
+func HybridSearch(ctx context.Context, store db.Store, embeddingProvider embeddings.Provider, query string, limit int, project *string, source *string) ([]models.SearchResult, error) {
 	ftsResults, err := store.FTSSearch(query, limit*2, project, source)
 	if err != nil {
 		return nil, err
@@ -137,7 +138,7 @@ func HybridSearch(store db.Store, embeddingProvider embeddings.Provider, query s
 		return ftsResults, nil
 	}
 
-	queryVec, err := embeddingProvider.Embed(query)
+	queryVec, err := embeddingProvider.Embed(ctx, query)
 	if err != nil {
 		// On embedding error, return FTS results
 		if len(ftsResults) > limit {

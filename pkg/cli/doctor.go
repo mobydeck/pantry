@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -132,7 +133,7 @@ var doctorCmd = &cobra.Command{
 			fail("initialize provider", err.Error())
 		} else {
 			pass("initialize provider", "ok")
-			embedding, err := provider.Embed("pantry doctor probe")
+			embedding, err := provider.Embed(context.Background(), "pantry doctor probe")
 			if err != nil {
 				fail("live probe", err.Error())
 				warn("", "check that your embedding service is running and reachable")

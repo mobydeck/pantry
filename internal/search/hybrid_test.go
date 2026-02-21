@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -53,7 +54,7 @@ type fakeEmbedder struct {
 	err    error
 }
 
-func (e *fakeEmbedder) Embed(_ string) ([]float32, error) {
+func (e *fakeEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
 	e.called++
 	if e.err != nil {
 		return nil, e.err
@@ -180,7 +181,7 @@ func TestTieredSearch_FTSSufficient_NoEmbedCall(t *testing.T) {
 	}
 	embedder := &fakeEmbedder{}
 
-	results, err := TieredSearch(store, embedder, "query", 5, DefaultMinFTSResults, nil, nil)
+	results, err := TieredSearch(context.Background(), store, embedder, "query", 5, DefaultMinFTSResults, nil, nil)
 	if err != nil {
 		t.Fatalf("TieredSearch() error = %v", err)
 	}
@@ -199,7 +200,7 @@ func TestTieredSearch_SparseFTS_CallsEmbed(t *testing.T) {
 	}
 	embedder := &fakeEmbedder{}
 
-	results, err := TieredSearch(store, embedder, "query", 5, DefaultMinFTSResults, nil, nil)
+	results, err := TieredSearch(context.Background(), store, embedder, "query", 5, DefaultMinFTSResults, nil, nil)
 	if err != nil {
 		t.Fatalf("TieredSearch() error = %v", err)
 	}
@@ -211,7 +212,7 @@ func TestTieredSearch_SparseFTS_CallsEmbed(t *testing.T) {
 
 func TestTieredSearch_FTSError_ReturnsError(t *testing.T) {
 	store := &fakeStore{ftsErr: errors.New("db failure")}
-	_, err := TieredSearch(store, nil, "q", 5, 3, nil, nil)
+	_, err := TieredSearch(context.Background(), store, nil, "q", 5, 3, nil, nil)
 	if err == nil {
 		t.Error("TieredSearch() should propagate FTS error")
 	}
@@ -220,7 +221,7 @@ func TestTieredSearch_FTSError_ReturnsError(t *testing.T) {
 func TestTieredSearch_NilProvider_ReturnsFTSOnly(t *testing.T) {
 	store := &fakeStore{ftsResults: []models.SearchResult{makeResult("a", 1.0)}}
 
-	results, err := TieredSearch(store, nil, "q", 5, 10, nil, nil) // minFTS=10 > 1 result
+	results, err := TieredSearch(context.Background(), store, nil, "q", 5, 10, nil, nil) // minFTS=10 > 1 result
 	if err != nil {
 		t.Fatalf("TieredSearch() error = %v", err)
 	}
@@ -238,7 +239,7 @@ func TestTieredSearch_EmbedError_ReturnsFTSResults(t *testing.T) {
 	}
 	embedder := &fakeEmbedder{err: errors.New("embed failed")}
 
-	results, err := TieredSearch(store, embedder, "q", 5, 10, nil, nil)
+	results, err := TieredSearch(context.Background(), store, embedder, "q", 5, 10, nil, nil)
 	if err != nil {
 		t.Fatalf("TieredSearch() should not error on embed failure, got: %v", err)
 	}

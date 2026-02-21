@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -223,7 +224,7 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]int
 	provider, err := s.GetEmbeddingProvider()
 	if err == nil {
 		embedText := fmt.Sprintf("%s %s %s %s %s", item.Title, item.What, getString(item.Why), getString(item.Impact), strings.Join(item.Tags, " "))
-		embedding, err := provider.Embed(embedText)
+		embedding, err := provider.Embed(context.Background(), embedText)
 		if err == nil {
 			if err := s.db.EnsureVecTable(len(embedding)); err == nil {
 				s.db.InsertVector(rowid, embedding)
@@ -247,7 +248,7 @@ func (s *Service) Search(query string, limit int, project *string, source *strin
 	}
 
 	// Use tiered search: FTS first, embed only if sparse results
-	return search.TieredSearch(s.db, provider, query, limit, search.DefaultMinFTSResults, project, source)
+	return search.TieredSearch(context.Background(), s.db, provider, query, limit, search.DefaultMinFTSResults, project, source)
 }
 
 // GetContext gets item pointers for context injection
@@ -316,7 +317,7 @@ func (s *Service) Reindex(progressCallback func(current, total int)) (map[string
 	}
 
 	// Detect dimension from provider
-	probe, err := provider.Embed("dimension probe")
+	probe, err := provider.Embed(context.Background(), "dimension probe")
 	if err != nil {
 		return nil, fmt.Errorf("failed to probe embedding dimension: %w", err)
 	}
@@ -351,7 +352,7 @@ func (s *Service) Reindex(progressCallback func(current, total int)) (map[string
 			getStringFromMap(item, "impact"),
 			tags)
 
-		embedding, err := provider.Embed(embedText)
+		embedding, err := provider.Embed(context.Background(), embedText)
 		if err != nil {
 			continue
 		}

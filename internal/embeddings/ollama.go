@@ -2,6 +2,7 @@ package embeddings
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,21 +26,25 @@ func NewOllamaProvider(model string, baseURL string) *OllamaProvider {
 	}
 }
 
+type ollamaEmbedRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+}
+
+type ollamaEmbedResponse struct {
+	Embedding []float64 `json:"embedding"`
+}
+
 // Embed generates an embedding vector using Ollama
-func (p *OllamaProvider) Embed(text string) ([]float32, error) {
+func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float32, error) {
 	url := fmt.Sprintf("%s/api/embeddings", p.baseURL)
 
-	requestBody := map[string]interface{}{
-		"model": p.model,
-		"prompt": text,
-	}
-
-	jsonData, err := json.Marshal(requestBody)
+	jsonData, err := json.Marshal(ollamaEmbedRequest{Model: p.model, Prompt: text})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -56,15 +61,11 @@ func (p *OllamaProvider) Embed(text string) ([]float32, error) {
 		return nil, fmt.Errorf("Ollama API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var response struct {
-		Embedding []float64 `json:"embedding"`
-	}
-
+	var response ollamaEmbedResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Convert []float64 to []float32
 	embedding := make([]float32, len(response.Embedding))
 	for i, v := range response.Embedding {
 		embedding[i] = float32(v)
