@@ -43,6 +43,18 @@ func NewProvider(cfg config.EmbeddingConfig) (Provider, error) {
 
 		return NewOpenAIProvider(cfg.Model, *cfg.APIKey, baseURL), nil
 
+	case "google":
+		if cfg.APIKey == nil || *cfg.APIKey == "" {
+			return nil, errors.New("API key required for Google provider")
+		}
+
+		baseURL := ""
+		if cfg.BaseURL != nil {
+			baseURL = *cfg.BaseURL
+		}
+
+		return NewGoogleProvider(cfg.Model, *cfg.APIKey, baseURL), nil
+
 	default:
 		return nil, fmt.Errorf("unknown embedding provider: %s", cfg.Provider)
 	}

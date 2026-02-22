@@ -113,9 +113,9 @@ func LoadConfig(path string) (*Config, error) {
 // Validate returns an error if the configuration contains invalid values.
 // Call this after LoadConfig to surface misconfiguration at startup.
 func (c *Config) Validate() error {
-	validProviders := map[string]bool{"ollama": true, "openai": true, "openrouter": true}
+	validProviders := map[string]bool{"ollama": true, "openai": true, "openrouter": true, "google": true}
 	if !validProviders[c.Embedding.Provider] {
-		return fmt.Errorf("invalid embedding.provider %q: must be one of ollama, openai, openrouter", c.Embedding.Provider)
+		return fmt.Errorf("invalid embedding.provider %q: must be one of ollama, openai, openrouter, google", c.Embedding.Provider)
 	}
 
 	if c.Embedding.Model == "" {
@@ -127,7 +127,7 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid context.semantic %q: must be one of auto, always, never", c.Context.Semantic)
 	}
 
-	if c.Embedding.Provider == "openai" || c.Embedding.Provider == "openrouter" {
+	if c.Embedding.Provider == "openai" || c.Embedding.Provider == "openrouter" || c.Embedding.Provider == "google" {
 		if c.Embedding.APIKey == nil || *c.Embedding.APIKey == "" {
 			return fmt.Errorf("embedding.api_key is required for provider %q", c.Embedding.Provider)
 		}
@@ -162,10 +162,10 @@ func GetDefaultConfigTemplate() string {
 # Embedding provider for semantic search.
 # Without this, keyword search (FTS5) still works.
 embedding:
-  provider: ollama              # ollama | openai | openrouter
+  provider: ollama              # ollama | openai | openrouter | google
   model: nomic-embed-text
   base_url: http://localhost:11434
-  # api_key: sk-...            # required for openai/openrouter
+  # api_key: sk-...            # required for openai/openrouter/google
 
 # How items are retrieved at session start.
 # "auto" uses vectors when available, falls back to keywords.

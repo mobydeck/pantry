@@ -53,7 +53,7 @@ Run `pantry doctor` to verify everything is working.
 
 ### Tell your agent to use Pantry
 
-MCP registration makes the tools available, but your agent also needs instructions to actually use them. The `setup` command installs a skill file automatically for agents that support it (Claude Code, Cursor, Codex). For other agents — or if you prefer to use a project-level rules file — add the following to your `AGENTS.md`, `.rules`, `CLAUDE.md`, or equivalent:
+MCP registration makes the tools available, but your agent also needs instructions to actually use them. The `setup` command installs a skill file automatically for agents that support it (Claude Code, Cursor, Windsurf, Antigravity, Codex). For other agents — or if you prefer to use a project-level rules file — add the following to your `AGENTS.md`, `.rules`, `CLAUDE.md`, or equivalent:
 
 ```markdown
 ## Pantry — persistent notes
@@ -108,6 +108,15 @@ embedding:
   api_key: sk-or-...
 ```
 
+**Google (Gemini API):**
+
+```yaml
+embedding:
+  provider: google
+  model: gemini-embedding-001
+  api_key: AIzaSy...
+```
+
 After changing providers, rebuild the vector index:
 
 ```bash
@@ -121,9 +130,9 @@ All config file values can be overridden with environment variables. They take p
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `PANTRY_HOME` | Override pantry home directory | `/data/pantry` |
-| `PANTRY_EMBEDDING_PROVIDER` | Embedding provider | `ollama`, `openai`, `openrouter` |
-| `PANTRY_EMBEDDING_MODEL` | Embedding model name | `text-embedding-3-small` |
-| `PANTRY_EMBEDDING_API_KEY` | API key for the embedding provider | `sk-...` |
+| `PANTRY_EMBEDDING_PROVIDER` | Embedding provider | `ollama`, `openai`, `openrouter`, `google` |
+| `PANTRY_EMBEDDING_MODEL` | Embedding model name | `text-embedding-3-small`, `gemini-embedding-001` |
+| `PANTRY_EMBEDDING_API_KEY` | API key for the embedding provider | `sk-...`, `AIzaSy...` |
 | `PANTRY_EMBEDDING_BASE_URL` | Base URL for the embedding API | `http://localhost:11434` |
 | `PANTRY_CONTEXT_SEMANTIC` | Semantic search mode | `auto`, `always`, `never` |
 
