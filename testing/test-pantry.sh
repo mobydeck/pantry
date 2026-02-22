@@ -175,7 +175,7 @@ run_contains "config init --force" "Created\|already exists" $PANTRY_BIN config 
 # --- reindex ---
 echo ""
 echo "--- reindex ---"
-run_contains "reindex runs" "Re-indexed\|Reindexing" $PANTRY_BIN reindex 2>/dev/null || true
+run_contains "reindex runs" "Re-indexed\|Reindexing\|Reindex skipped" $PANTRY_BIN reindex
 
 # --- setup / uninstall (dry run - just verify they accept args) ---
 echo ""

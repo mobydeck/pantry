@@ -36,8 +36,9 @@ var reindexCmd = &cobra.Command{
 
 		result, err := svc.Reindex(progressCallback)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(os.Stderr, "Reindex skipped: %v\n", err)
+
+			return
 		}
 
 		fmt.Printf("Re-indexed %v notes with %v (%v dims)\n",
