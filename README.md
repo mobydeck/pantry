@@ -4,7 +4,7 @@ Local note storage for coding agents. Your agent keeps notes on decisions, bugs,
 
 ## Features
 
-- **Works with multiple agents** — Claude Code, Cursor, Codex, OpenCode, RooCode. One command sets up MCP config for your agent.
+- **Works with multiple agents** — Claude Code, Cursor, Windsurf, Antigravity, Codex, OpenCode, RooCode. One command sets up MCP config for your agent.
 - **MCP native** — Runs as an MCP server exposing `pantry_store`, `pantry_search`, and `pantry_context` as tools.
 - **Local-first** — Everything stays on your machine. Notes are stored as Markdown in `~/.pantry/shelves/`, readable in Obsidian or any editor.
 - **Zero idle cost** — No background processes, no daemon, no RAM overhead. The MCP server only runs when the agent starts it.
@@ -44,7 +44,7 @@ pantry init
 ### Connect your agent
 
 ```bash
-pantry setup claude-code   # or: cursor, codex, opencode, roocode
+pantry setup claude-code   # or: cursor, windsurf, antigravity, codex, opencode, roocode
 ```
 
 This writes the MCP server entry into your agent's config file. Restart the agent and pantry will be available as a tool.
@@ -80,15 +80,18 @@ Do not skip either step. Notes are how context survives across sessions.
 Keyword search (FTS5) works with no extra setup. To also enable semantic vector search, configure an embedding provider in `~/.pantry/config.yaml`:
 
 **Ollama (local, free):**
+
 ```yaml
 embedding:
   provider: ollama
   model: nomic-embed-text
   base_url: http://localhost:11434
 ```
+
 Install [Ollama](https://ollama.com), then: `ollama pull nomic-embed-text`
 
 **OpenAI:**
+
 ```yaml
 embedding:
   provider: openai
@@ -97,6 +100,7 @@ embedding:
 ```
 
 **OpenRouter:**
+
 ```yaml
 embedding:
   provider: openrouter
@@ -105,6 +109,7 @@ embedding:
 ```
 
 After changing providers, rebuild the vector index:
+
 ```bash
 pantry reindex
 ```

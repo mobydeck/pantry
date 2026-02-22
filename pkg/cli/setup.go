@@ -22,7 +22,7 @@ func runAgentCmd(agent string, handlers map[string]agentFunc, configDir string, 
 	fn, ok := handlers[agent]
 	if !ok {
 		fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
-		fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode, roocode\n")
+		fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, windsurf, antigravity, codex, opencode, roocode\n")
 		os.Exit(1)
 	}
 
@@ -45,6 +45,8 @@ var setupCmd = &cobra.Command{
 			"claude":      setupClaudeCode,
 			"claude-code": setupClaudeCode,
 			"cursor":      setupCursor,
+			"windsurf":    setupWindsurf,
+			"antigravity": setupAntigravity,
 			"codex":       setupCodex,
 			"opencode":    func(_ string, project bool) (map[string]string, error) { return setupOpenCode(project) },
 			"roo":         setupRooCode,
@@ -63,6 +65,8 @@ var uninstallCmd = &cobra.Command{
 			"claude":      uninstallClaudeCode,
 			"claude-code": uninstallClaudeCode,
 			"cursor":      uninstallCursor,
+			"windsurf":    uninstallWindsurf,
+			"antigravity": uninstallAntigravity,
 			"codex":       uninstallCodex,
 			"opencode":    func(_ string, project bool) (map[string]string, error) { return uninstallOpenCode(project) },
 			"roo":         uninstallRooCode,
@@ -198,6 +202,122 @@ func writeClaudeJSONUserMCP(configPath string, entry map[string]any) error {
 func setupCursor(configDir string, project bool) (map[string]string, error) {
 	target := resolveConfigDir(".cursor", configDir, project)
 	configPath := filepath.Join(target, "mcp.json")
+
+	// Read existing config or create new
+	var config map[string]any
+	if data, err := os.ReadFile(configPath); err == nil {
+		if err := json.Unmarshal(data, &config); err != nil {
+			return nil, fmt.Errorf("failed to parse existing config: %w", err)
+		}
+	} else {
+		config = make(map[string]any)
+	}
+
+	// Add MCP server config
+	mcpServers, ok := config["mcpServers"].(map[string]any)
+	if !ok {
+		mcpServers = make(map[string]any)
+		config["mcpServers"] = mcpServers
+	}
+
+	mcpServers["pantry"] = map[string]any{
+		"command": "pantry",
+		"args":    []string{"mcp"},
+	}
+
+	// Write config
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write config: %w", err)
+	}
+
+	msg := "Installed Pantry MCP server in " + configPath
+	if installSkill(target) {
+		msg += " and skill"
+	}
+
+	return map[string]string{"message": msg}, nil
+}
+
+func setupWindsurf(configDir string, project bool) (map[string]string, error) {
+	var target string
+	if configDir != "" {
+		target = configDir
+	} else if project {
+		cwd, _ := os.Getwd()
+		target = filepath.Join(cwd, ".codeium", "windsurf")
+	} else {
+		home, _ := os.UserHomeDir()
+		target = filepath.Join(home, ".codeium", "windsurf")
+	}
+
+	configPath := filepath.Join(target, "mcp_config.json")
+
+	// Read existing config or create new
+	var config map[string]any
+	if data, err := os.ReadFile(configPath); err == nil {
+		if err := json.Unmarshal(data, &config); err != nil {
+			return nil, fmt.Errorf("failed to parse existing config: %w", err)
+		}
+	} else {
+		config = make(map[string]any)
+	}
+
+	// Add MCP server config
+	mcpServers, ok := config["mcpServers"].(map[string]any)
+	if !ok {
+		mcpServers = make(map[string]any)
+		config["mcpServers"] = mcpServers
+	}
+
+	mcpServers["pantry"] = map[string]any{
+		"command": "pantry",
+		"args":    []string{"mcp"},
+	}
+
+	// Write config
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write config: %w", err)
+	}
+
+	msg := "Installed Pantry MCP server in " + configPath
+	if installSkill(target) {
+		msg += " and skill"
+	}
+
+	return map[string]string{"message": msg}, nil
+}
+
+func setupAntigravity(configDir string, project bool) (map[string]string, error) {
+	var target string
+	if configDir != "" {
+		target = configDir
+	} else if project {
+		cwd, _ := os.Getwd()
+		target = filepath.Join(cwd, ".gemini", "antigravity")
+	} else {
+		home, _ := os.UserHomeDir()
+		target = filepath.Join(home, ".gemini", "antigravity")
+	}
+
+	configPath := filepath.Join(target, "mcp_config.json")
 
 	// Read existing config or create new
 	var config map[string]any
@@ -420,6 +540,66 @@ func uninstallCursor(configDir string, project bool) (map[string]string, error) 
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return map[string]string{"message": "Pantry not found in Cursor config"}, nil
+	}
+
+	if err := removePantryFromMCPJSON(configPath); err != nil {
+		return nil, err
+	}
+
+	msg := "Removed Pantry from " + configPath
+	if uninstallSkill(target) {
+		msg += " and skill"
+	}
+
+	return map[string]string{"message": msg}, nil
+}
+
+func uninstallWindsurf(configDir string, project bool) (map[string]string, error) {
+	var target string
+	if configDir != "" {
+		target = configDir
+	} else if project {
+		cwd, _ := os.Getwd()
+		target = filepath.Join(cwd, ".codeium", "windsurf")
+	} else {
+		home, _ := os.UserHomeDir()
+		target = filepath.Join(home, ".codeium", "windsurf")
+	}
+
+	configPath := filepath.Join(target, "mcp_config.json")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return map[string]string{"message": "Pantry not found in Windsurf config"}, nil
+	}
+
+	if err := removePantryFromMCPJSON(configPath); err != nil {
+		return nil, err
+	}
+
+	msg := "Removed Pantry from " + configPath
+	if uninstallSkill(target) {
+		msg += " and skill"
+	}
+
+	return map[string]string{"message": msg}, nil
+}
+
+func uninstallAntigravity(configDir string, project bool) (map[string]string, error) {
+	var target string
+	if configDir != "" {
+		target = configDir
+	} else if project {
+		cwd, _ := os.Getwd()
+		target = filepath.Join(cwd, ".gemini", "antigravity")
+	} else {
+		home, _ := os.UserHomeDir()
+		target = filepath.Join(home, ".gemini", "antigravity")
+	}
+
+	configPath := filepath.Join(target, "mcp_config.json")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return map[string]string{"message": "Pantry not found in Antigravity config"}, nil
 	}
 
 	if err := removePantryFromMCPJSON(configPath); err != nil {
