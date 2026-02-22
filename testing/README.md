@@ -24,7 +24,7 @@ PANTRY_BIN=./pantry ./testing/test-pantry.sh
 - **list** — Recent notes, limit
 - **retrieve** — By full ID, short ID, details content
 - **remove** — Delete note, verify it's gone from search
-- **log** — List daily note logs
+- **notes** — List daily note files (alias: log)
 - **config** — Show config, init --force
 - **reindex** — Rebuild vector index (FTS-only when embeddings unavailable)
 - **setup/uninstall** — Unknown agent fails, cursor with --config-dir

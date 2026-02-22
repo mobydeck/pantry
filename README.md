@@ -174,7 +174,7 @@ pantry search <query>        Search notes
 pantry retrieve <id>         Show full note details
 pantry list                  List recent notes
 pantry remove <id>           Delete a note
-pantry log                   List daily note files
+pantry notes                 List daily note files (alias: log)
 pantry config                Show current configuration
 pantry config init           Generate a starter config.yaml
 pantry setup <agent>         Configure MCP for an agent
@@ -211,7 +211,7 @@ pantry store \
 | `--source` | `-s` | Source agent identifier |
 | `--project` | `-p` | Project name (defaults to current directory) |
 
-`pantry list` / `pantry search` / `pantry log`:
+`pantry list` / `pantry search` / `pantry notes`:
 
 | Flag | Short | Description |
 |------|-------|-------------|

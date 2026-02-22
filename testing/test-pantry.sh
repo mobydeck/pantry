@@ -158,12 +158,12 @@ REMOVE_ID=$(echo "$REMOVE_OUT" | grep -oE 'id: [a-f0-9-]+' | head -1 | cut -d' '
 run_contains "remove deletes item" "Removed" $PANTRY_BIN remove "$REMOVE_ID"
 run_not_contains "removed item not in search" "To be removed" $PANTRY_BIN search "removed" 2>/dev/null || true
 
-# --- log ---
+# --- notes ---
 echo ""
-echo "--- log ---"
-# Logs are created when storing with project - we have test-project items
-run_contains "log runs" "Logs" $PANTRY_BIN log
-run_contains "log with limit" "Logs" $PANTRY_BIN log --limit 5
+echo "--- notes ---"
+# Note files are created when storing with project - we have test-project items
+run_contains "notes runs" "Notes" $PANTRY_BIN notes
+run_contains "notes with limit" "Notes" $PANTRY_BIN notes --limit 5
 
 # --- config ---
 echo ""

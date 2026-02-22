@@ -8,9 +8,11 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "pantry",
-	Short:   "Pantry - local notes for coding agents",
-	Long:    `Pantry provides local-first note storage for coding agents. Store, search, and retrieve decisions, patterns, bugs, and context across sessions.`,
+	Use:   "pantry",
+	Short: "Pantry - local notes for coding agents",
+	Long: `Pantry provides local-first note storage for coding agents.
+Store, search, and retrieve decisions, patterns, bugs,
+and context across sessions.`,
 	Version: Version,
 }
 
@@ -31,7 +33,7 @@ func init() {
 	rootCmd.AddCommand(retrieveCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(removeCmd)
-	rootCmd.AddCommand(logCmd)
+	rootCmd.AddCommand(notesCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(uninstallCmd)

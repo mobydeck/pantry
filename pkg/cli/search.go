@@ -71,6 +71,7 @@ var searchCmd = &cobra.Command{
 			}
 
 			fmt.Printf(" [%d] %s (score: %.2f)\n", i+1, r.Title, r.Score)
+			fmt.Printf("     id: %s\n", r.ID)
 			fmt.Printf("     %s | %s | %s", cat, r.CreatedAt[:10], r.Project)
 
 			if src != "" {
@@ -89,7 +90,7 @@ var searchCmd = &cobra.Command{
 			}
 
 			if r.HasDetails {
-				fmt.Printf("     Details: available (use `pantry retrieve %s`)\n", r.ID[:12])
+				fmt.Printf("     Details: available (use `pantry retrieve %s`)\n", r.ID)
 			}
 
 			fmt.Println()

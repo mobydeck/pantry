@@ -86,7 +86,7 @@ To remove: `pantry uninstall claude-code`
 
 ```bash
 pantry config       # show current configuration
-pantry log          # list daily note logs
+pantry notes        # list daily note files (alias: log)
 pantry reindex      # rebuild search index
 pantry remove <id>  # remove a note
 ```

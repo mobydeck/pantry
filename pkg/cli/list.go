@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"pantry/internal/core"
@@ -78,10 +79,10 @@ var listCmd = &cobra.Command{
 
 			tags := ""
 			if len(r.Tags) > 0 {
-				tags = fmt.Sprintf(" [%s]", fmt.Sprintf("%v", r.Tags))
+				tags = fmt.Sprintf(" [[%s]]", strings.Join(r.Tags, " "))
 			}
 
-			fmt.Printf("- [%s] %s%s%s\n", dateDisplay, r.Title, cat, tags)
+			fmt.Printf("- %s [%s] %s%s%s\n", r.ID[:8], dateDisplay, r.Title, cat, tags)
 		}
 
 		fmt.Println("\nUse `pantry search <query>` to search notes, `pantry retrieve <id>` for full details.")
