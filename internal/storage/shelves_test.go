@@ -10,8 +10,11 @@ import (
 
 func TestWriteNoteItem(t *testing.T) {
 	tmpDir := t.TempDir()
+
 	projectDir := filepath.Join(tmpDir, "test-project")
-	os.MkdirAll(projectDir, 0755)
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("os.MkdirAll() error = %v", err)
+	}
 
 	item := models.Item{
 		ID:            "test-id",
@@ -25,6 +28,7 @@ func TestWriteNoteItem(t *testing.T) {
 	}
 
 	details := "Full details here"
+
 	filePath, err := WriteNoteItem(projectDir, item, "2026-01-01", &details)
 	if err != nil {
 		t.Fatalf("WriteNoteItem() error = %v", err)
@@ -49,16 +53,17 @@ func TestWriteNoteItem(t *testing.T) {
 	if !contains(contentStr, "Test Item") {
 		t.Error("File should contain item title")
 	}
+
 	if !contains(contentStr, "This is a test") {
 		t.Error("File should contain item what")
 	}
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
-		(len(s) > len(substr) && (s[:len(substr)] == substr || 
-		s[len(s)-len(substr):] == substr || 
-		containsMiddle(s, substr))))
+	return len(s) >= len(substr) && (s == substr ||
+		(len(s) > len(substr) && (s[:len(substr)] == substr ||
+			s[len(s)-len(substr):] == substr ||
+			containsMiddle(s, substr))))
 }
 
 func containsMiddle(s, substr string) bool {
@@ -67,5 +72,6 @@ func containsMiddle(s, substr string) bool {
 			return true
 		}
 	}
+
 	return false
 }

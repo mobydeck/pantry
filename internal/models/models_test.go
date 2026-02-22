@@ -15,12 +15,15 @@ func TestFromRaw(t *testing.T) {
 	if item.ID == "" {
 		t.Error("FromRaw() ID should not be empty")
 	}
+
 	if item.Title != "Test Item" {
 		t.Errorf("FromRaw() Title = %q, want %q", item.Title, "Test Item")
 	}
+
 	if item.Project != "test-project" {
 		t.Errorf("FromRaw() Project = %q, want %q", item.Project, "test-project")
 	}
+
 	if item.SectionAnchor == "" {
 		t.Error("FromRaw() SectionAnchor should not be empty")
 	}
@@ -39,6 +42,7 @@ func TestGenerateAnchor(t *testing.T) {
 
 	for _, tt := range tests {
 		raw := RawItemInput{Title: tt.input}
+
 		item := FromRaw(raw, "test", "")
 		if item.SectionAnchor != tt.want {
 			t.Errorf("generateAnchor(%q) = %q, want %q", tt.input, item.SectionAnchor, tt.want)

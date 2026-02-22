@@ -26,7 +26,7 @@ type Store interface {
 	FTSSearch(query string, limit int, project *string, source *string) ([]models.SearchResult, error)
 	VectorSearch(queryEmbedding []float32, limit int, project *string, source *string) ([]models.SearchResult, error)
 	ListRecent(limit int, project *string, source *string) ([]models.SearchResult, error)
-	ListAllForReindex() ([]map[string]interface{}, error)
+	ListAllForReindex() ([]map[string]any, error)
 	CountItems(project *string, source *string) (int64, error)
 	HasVecTable() bool
 	EnsureVecTable(dim int) error

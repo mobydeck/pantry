@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"pantry/internal/core"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -19,6 +20,7 @@ var searchCmd = &cobra.Command{
 	Use:   "search [query]",
 	Short: "Search pantry items",
 	Args:  cobra.ExactArgs(1),
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 
@@ -27,9 +29,11 @@ var searchCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		defer svc.Close()
+
+		defer func() { _ = svc.Close() }()
 
 		var project *string
+
 		if searchProject {
 			dir, _ := os.Getwd()
 			projectName := filepath.Base(dir)
@@ -49,6 +53,7 @@ var searchCmd = &cobra.Command{
 
 		if len(results) == 0 {
 			fmt.Println("No results found.")
+
 			return
 		}
 
@@ -59,6 +64,7 @@ var searchCmd = &cobra.Command{
 			if r.Category != nil {
 				cat = *r.Category
 			}
+
 			src := ""
 			if r.Source != nil {
 				src = *r.Source
@@ -66,9 +72,11 @@ var searchCmd = &cobra.Command{
 
 			fmt.Printf(" [%d] %s (score: %.2f)\n", i+1, r.Title, r.Score)
 			fmt.Printf("     %s | %s | %s", cat, r.CreatedAt[:10], r.Project)
+
 			if src != "" {
 				fmt.Printf(" | %s", src)
 			}
+
 			fmt.Println()
 			fmt.Printf("     What: %s\n", r.What)
 
@@ -83,6 +91,7 @@ var searchCmd = &cobra.Command{
 			if r.HasDetails {
 				fmt.Printf("     Details: available (use `pantry retrieve %s`)\n", r.ID[:12])
 			}
+
 			fmt.Println()
 		}
 	},

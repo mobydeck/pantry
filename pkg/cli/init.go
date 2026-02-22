@@ -5,16 +5,19 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"pantry/internal/config"
 	"pantry/internal/core"
+
+	"github.com/spf13/cobra"
 )
 
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the pantry",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
+
 		shelvesDir := filepath.Join(home, "shelves")
 		if err := os.MkdirAll(shelvesDir, 0755); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to create shelves directory: %v\n", err)

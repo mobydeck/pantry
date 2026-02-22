@@ -6,15 +6,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"pantry/internal/config"
 	"pantry/internal/core"
 	"pantry/internal/redaction"
+
+	"github.com/spf13/cobra"
 )
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
 	Short: "Check pantry health and capabilities",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		ok := true
 		pass := func(label, detail string) {
@@ -22,6 +24,7 @@ var doctorCmd = &cobra.Command{
 		}
 		fail := func(label, detail string) {
 			fmt.Printf("  \u2717 %-28s %s\n", label, detail)
+
 			ok = false
 		}
 		warn := func(label, detail string) {
@@ -76,15 +79,18 @@ var doctorCmd = &cobra.Command{
 			fail("load config", err.Error())
 		} else {
 			pass("load config", "ok")
+
 			if err := cfg.Validate(); err != nil {
 				fail("validate config", err.Error())
 			} else {
 				pass("validate config", "ok")
 			}
+
 			baseURL := "(default)"
 			if cfg.Embedding.BaseURL != nil {
 				baseURL = *cfg.Embedding.BaseURL
 			}
+
 			pass("embedding provider", fmt.Sprintf("%s / %s @ %s", cfg.Embedding.Provider, cfg.Embedding.Model, baseURL))
 			pass("context.semantic", cfg.Context.Semantic)
 		}
@@ -92,6 +98,7 @@ var doctorCmd = &cobra.Command{
 		// --- Redaction ---
 		fmt.Println("\nRedaction:")
 		pass("built-in patterns", fmt.Sprintf("%d patterns", len(redaction.SensitivePatterns)))
+
 		if patterns, err := redaction.LoadPantryIgnore(ignorePath); err != nil && !os.IsNotExist(err) {
 			fail(".pantryignore patterns", err.Error())
 		} else {
@@ -107,7 +114,9 @@ var doctorCmd = &cobra.Command{
 			fmt.Println("\nFix the issues above and re-run `pantry doctor`.")
 			os.Exit(1)
 		}
-		defer svc.Close()
+
+		defer func() { _ = svc.Close() }()
+
 		pass("database connection", "ok")
 
 		total, err := svc.CountItems(nil, nil)
@@ -133,6 +142,7 @@ var doctorCmd = &cobra.Command{
 			fail("initialize provider", err.Error())
 		} else {
 			pass("initialize provider", "ok")
+
 			embedding, err := provider.Embed(context.Background(), "pantry doctor probe")
 			if err != nil {
 				fail("live probe", err.Error())
@@ -144,6 +154,7 @@ var doctorCmd = &cobra.Command{
 
 		// --- Summary ---
 		fmt.Println()
+
 		if ok {
 			fmt.Println("All checks passed.")
 		} else {

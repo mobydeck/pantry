@@ -39,3 +39,6 @@ jobs:
 
       - name: Test
         run: go test -race -timeout 120s ./...
+
+      - name: Test Integration
+        run: ./testing/test-pantry.sh

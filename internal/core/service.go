@@ -33,16 +33,16 @@ func WithStore(s db.Store) Option {
 	return func(svc *Service) { svc.db = s }
 }
 
-// Service is the main orchestrator for pantry operations
+// Service is the main orchestrator for pantry operations.
 type Service struct {
-	pantryHome          string
-	shelvesDir            string
-	dbPath              string
-	configPath          string
-	ignorePath          string
-	config              *config.Config
-	db                  db.Store
-	compiledIgnore      []*regexp.Regexp // pre-compiled from .pantryignore
+	pantryHome     string
+	shelvesDir     string
+	dbPath         string
+	configPath     string
+	ignorePath     string
+	config         *config.Config
+	db             db.Store
+	compiledIgnore []*regexp.Regexp // pre-compiled from .pantryignore
 
 	// Lazy-initialized, protected by sync.Once for safety under concurrent access.
 	embeddingOnce     sync.Once
@@ -75,6 +75,7 @@ func NewService(pantryHome string, opts ...Option) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
@@ -93,7 +94,7 @@ func NewService(pantryHome string, opts ...Option) (*Service, error) {
 
 	svc := &Service{
 		pantryHome:     pantryHome,
-		shelvesDir:       shelvesDir,
+		shelvesDir:     shelvesDir,
 		dbPath:         dbPath,
 		configPath:     configPath,
 		ignorePath:     ignorePath,
@@ -115,6 +116,7 @@ func (s *Service) GetEmbeddingProvider() (embeddings.Provider, error) {
 	s.embeddingOnce.Do(func() {
 		s.embeddingProvider, s.embeddingErr = embeddings.NewProvider(s.config.Embedding)
 	})
+
 	return s.embeddingProvider, s.embeddingErr
 }
 
@@ -124,6 +126,7 @@ func (s *Service) VectorsAvailable() bool {
 	s.vectorsOnce.Do(func() {
 		s.vectorsAvailable = s.db.HasVecTable()
 	})
+
 	return s.vectorsAvailable
 }
 
@@ -132,8 +135,8 @@ func (s *Service) CountItems(project *string, source *string) (int64, error) {
 	return s.db.CountItems(project, source)
 }
 
-// Store stores an item in the pantry
-func (s *Service) Store(raw models.RawItemInput, project string) (map[string]interface{}, error) {
+// Store stores an item in the pantry.
+func (s *Service) Store(raw models.RawItemInput, project string) (map[string]any, error) {
 	if project == "" {
 		project = filepath.Base(getCurrentDir())
 	}
@@ -152,61 +155,26 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]int
 		redacted := redaction.RedactCompiled(*raw.Why, s.compiledIgnore)
 		raw.Why = &redacted
 	}
+
 	if raw.Impact != nil {
 		redacted := redaction.RedactCompiled(*raw.Impact, s.compiledIgnore)
 		raw.Impact = &redacted
 	}
+
 	if raw.Details != nil {
 		redacted := redaction.RedactCompiled(*raw.Details, s.compiledIgnore)
 		raw.Details = &redacted
 	}
 
 	// Dedup check: look for similar existing item in same project
-	dedupQuery := fmt.Sprintf("%s %s", raw.Title, raw.What)
-	candidates, err := s.db.FTSSearch(dedupQuery, 5, &project, nil)
-	if err == nil && len(candidates) > 0 {
-		// Normalize score
-		broad, _ := s.db.FTSSearch(dedupQuery, 5, nil, nil)
-		maxScore := 0.0
-		if len(broad) > 0 {
-			maxScore = broad[0].Score
-		}
-		if len(candidates) > 0 {
-			top := candidates[0]
-			normalized := 0.0
-			if maxScore > 0 {
-				normalized = top.Score / maxScore
-			}
-			titleMatch := strings.EqualFold(strings.TrimSpace(raw.Title), strings.TrimSpace(top.Title))
-			if normalized >= DedupScoreThreshold && titleMatch {
-				// Update existing item
-				existingID := top.ID
-				existingFilePath := top.FilePath
-
-				// Merge tags
-				mergedTags := mergeTags(top.Tags, raw.Tags)
-
-				detailsAppend := ""
-				if raw.Details != nil {
-					detailsAppend = fmt.Sprintf("--- updated %s ---\n%s", today, *raw.Details)
-				}
-
-				err := s.db.UpdateItem(existingID, &raw.What, raw.Why, raw.Impact, mergedTags, &detailsAppend)
-				if err != nil {
-					return nil, fmt.Errorf("failed to update item: %w", err)
-				}
-
-				return map[string]interface{}{
-					"id":        existingID,
-					"file_path": existingFilePath,
-					"action":    "updated",
-				}, nil
-			}
-		}
+	if result, err := s.tryDedup(raw, project, today); err != nil {
+		return nil, err
+	} else if result != nil {
+		return result, nil
 	}
 
 	// Normal save path: create new item
-	filePath := filepath.Join(projectDir, fmt.Sprintf("%s-notes.md", today))
+	filePath := filepath.Join(projectDir, today+"-notes.md")
 	item := models.FromRaw(raw, project, filePath)
 
 	// Write markdown file
@@ -224,22 +192,23 @@ func (s *Service) Store(raw models.RawItemInput, project string) (map[string]int
 	provider, err := s.GetEmbeddingProvider()
 	if err == nil {
 		embedText := fmt.Sprintf("%s %s %s %s %s", item.Title, item.What, getString(item.Why), getString(item.Impact), strings.Join(item.Tags, " "))
+
 		embedding, err := provider.Embed(context.Background(), embedText)
 		if err == nil {
 			if err := s.db.EnsureVecTable(len(embedding)); err == nil {
-				s.db.InsertVector(rowid, embedding)
+				_ = s.db.InsertVector(rowid, embedding)
 			}
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"id":        item.ID,
 		"file_path": filePath,
 		"action":    "created",
 	}, nil
 }
 
-// Search searches items using hybrid FTS + vector search
+// Search searches items using hybrid FTS + vector search.
 func (s *Service) Search(query string, limit int, project *string, source *string, useVectors bool) ([]models.SearchResult, error) {
 	provider, err := s.GetEmbeddingProvider()
 	if err != nil || !useVectors || !s.VectorsAvailable() {
@@ -251,7 +220,7 @@ func (s *Service) Search(query string, limit int, project *string, source *strin
 	return search.TieredSearch(context.Background(), s.db, provider, query, limit, search.DefaultMinFTSResults, project, source)
 }
 
-// GetContext gets item pointers for context injection
+// GetContext gets item pointers for context injection.
 func (s *Service) GetContext(limit int, project *string, source *string, query *string, semanticMode string, topupRecent bool) ([]models.SearchResult, int64, error) {
 	total, err := s.db.CountItems(project, source)
 	if err != nil {
@@ -259,13 +228,9 @@ func (s *Service) GetContext(limit int, project *string, source *string, query *
 	}
 
 	var results []models.SearchResult
+
 	if query != nil {
-		useVectors := false
-		if semanticMode == "always" {
-			useVectors = true
-		} else if semanticMode == "auto" && s.VectorsAvailable() {
-			useVectors = true
-		}
+		useVectors := semanticMode == "always" || (semanticMode == "auto" && s.VectorsAvailable())
 
 		results, err = s.Search(*query, limit, project, source, useVectors)
 		if err != nil {
@@ -273,21 +238,7 @@ func (s *Service) GetContext(limit int, project *string, source *string, query *
 		}
 
 		if topupRecent && len(results) < limit {
-			recent, err := s.db.ListRecent(limit, project, source)
-			if err == nil {
-				seen := make(map[string]bool)
-				for _, r := range results {
-					seen[r.ID] = true
-				}
-				for _, r := range recent {
-					if !seen[r.ID] {
-						results = append(results, r)
-						if len(results) >= limit {
-							break
-						}
-					}
-				}
-			}
+			results = s.topupWithRecent(results, limit, project, source)
 		}
 	} else {
 		results, err = s.db.ListRecent(limit, project, source)
@@ -299,18 +250,18 @@ func (s *Service) GetContext(limit int, project *string, source *string, query *
 	return results, total, nil
 }
 
-// GetDetails gets full details for an item
+// GetDetails gets full details for an item.
 func (s *Service) GetDetails(itemID string) (*models.ItemDetail, error) {
 	return s.db.GetDetails(itemID)
 }
 
-// Remove removes an item from pantry
+// Remove removes an item from pantry.
 func (s *Service) Remove(itemID string) (bool, error) {
 	return s.db.DeleteItem(itemID)
 }
 
-// Reindex rebuilds the vector table with current embedding provider
-func (s *Service) Reindex(progressCallback func(current, total int)) (map[string]interface{}, error) {
+// Reindex rebuilds the vector table with current embedding provider.
+func (s *Service) Reindex(progressCallback func(current, total int)) (map[string]any, error) {
 	provider, err := s.GetEmbeddingProvider()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get embedding provider: %w", err)
@@ -321,13 +272,18 @@ func (s *Service) Reindex(progressCallback func(current, total int)) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("failed to probe embedding dimension: %w", err)
 	}
+
 	dim := len(probe)
 
 	// Drop and recreate vec table
-	s.db.DropVecTable()
+	if err := s.db.DropVecTable(); err != nil {
+		return nil, fmt.Errorf("failed to drop vec table: %w", err)
+	}
+
 	if err := s.db.SetEmbeddingDim(dim); err != nil {
 		return nil, err
 	}
+
 	if err := s.db.EnsureVecTable(dim); err != nil {
 		return nil, err
 	}
@@ -337,6 +293,7 @@ func (s *Service) Reindex(progressCallback func(current, total int)) (map[string
 	if err != nil {
 		return nil, err
 	}
+
 	total := len(items)
 
 	for i, item := range items {
@@ -357,24 +314,100 @@ func (s *Service) Reindex(progressCallback func(current, total int)) (map[string
 			continue
 		}
 
-		rowid := item["rowid"].(int64)
-		s.db.InsertVector(rowid, embedding)
+		rowid, ok := item["rowid"].(int64)
+		if !ok {
+			continue
+		}
+
+		_ = s.db.InsertVector(rowid, embedding)
 
 		if progressCallback != nil {
 			progressCallback(i+1, total)
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"count": total,
 		"dim":   dim,
 		"model": s.config.Embedding.Model,
 	}, nil
 }
 
-// Close closes the service and cleans up resources
+// Close closes the service and cleans up resources.
 func (s *Service) Close() error {
 	return s.db.Close()
+}
+
+// tryDedup checks if a matching item already exists and updates it.
+// Returns (result, nil) if a duplicate was found and updated, (nil, nil) if no duplicate, or (nil, err) on failure.
+func (s *Service) tryDedup(raw models.RawItemInput, project, today string) (map[string]any, error) {
+	dedupQuery := fmt.Sprintf("%s %s", raw.Title, raw.What)
+
+	candidates, err := s.db.FTSSearch(dedupQuery, 5, &project, nil)
+	if err != nil || len(candidates) == 0 {
+		//nolint:nilerr,nilnil
+		return nil, nil
+	}
+
+	broad, _ := s.db.FTSSearch(dedupQuery, 5, nil, nil)
+
+	maxScore := 0.0
+	if len(broad) > 0 {
+		maxScore = broad[0].Score
+	}
+
+	top := candidates[0]
+
+	normalized := 0.0
+	if maxScore > 0 {
+		normalized = top.Score / maxScore
+	}
+
+	titleMatch := strings.EqualFold(strings.TrimSpace(raw.Title), strings.TrimSpace(top.Title))
+	if normalized < DedupScoreThreshold || !titleMatch {
+		return nil, nil //nolint:nilnil
+	}
+
+	mergedTags := mergeTags(top.Tags, raw.Tags)
+
+	detailsAppend := ""
+	if raw.Details != nil {
+		detailsAppend = fmt.Sprintf("--- updated %s ---\n%s", today, *raw.Details)
+	}
+
+	if err := s.db.UpdateItem(top.ID, &raw.What, raw.Why, raw.Impact, mergedTags, &detailsAppend); err != nil {
+		return nil, fmt.Errorf("failed to update item: %w", err)
+	}
+
+	return map[string]any{
+		"id":        top.ID,
+		"file_path": top.FilePath,
+		"action":    "updated",
+	}, nil
+}
+
+// topupWithRecent appends recent items not already in results until limit is reached.
+func (s *Service) topupWithRecent(results []models.SearchResult, limit int, project *string, source *string) []models.SearchResult {
+	recent, err := s.db.ListRecent(limit, project, source)
+	if err != nil {
+		return results
+	}
+
+	seen := make(map[string]bool, len(results))
+	for _, r := range results {
+		seen[r.ID] = true
+	}
+
+	for _, r := range recent {
+		if !seen[r.ID] {
+			results = append(results, r)
+			if len(results) >= limit {
+				break
+			}
+		}
+	}
+
+	return results
 }
 
 // Helper functions
@@ -387,6 +420,7 @@ func getCurrentDir() string {
 	if err != nil {
 		return "unknown"
 	}
+
 	return dir
 }
 
@@ -394,30 +428,36 @@ func getString(s *string) string {
 	if s == nil {
 		return ""
 	}
+
 	return *s
 }
 
-func getStringFromMap(m map[string]interface{}, key string) string {
+func getStringFromMap(m map[string]any, key string) string {
 	if val, ok := m[key]; ok {
 		if str, ok := val.(string); ok {
 			return str
 		}
 	}
+
 	return ""
 }
 
 func mergeTags(existing []string, extra []string) []string {
 	combined := make([]string, len(existing))
 	copy(combined, existing)
+
 	existingNorm := make(map[string]bool)
 	for _, t := range existing {
 		existingNorm[strings.ToLower(t)] = true
 	}
+
 	for _, tag := range extra {
 		if !existingNorm[strings.ToLower(tag)] {
+			//nolint:makezero
 			combined = append(combined, tag)
 			existingNorm[strings.ToLower(tag)] = true
 		}
 	}
+
 	return combined
 }

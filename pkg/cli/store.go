@@ -5,9 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"pantry/internal/core"
 	"pantry/internal/models"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -26,6 +27,7 @@ var (
 var storeCmd = &cobra.Command{
 	Use:   "store",
 	Short: "Store a note in the pantry",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		if storeTitle == "" || storeWhat == "" {
 			fmt.Fprintf(os.Stderr, "Error: --title and --what are required\n")
@@ -40,15 +42,19 @@ var storeCmd = &cobra.Command{
 		if storeWhy != "" {
 			raw.Why = &storeWhy
 		}
+
 		if storeImpact != "" {
 			raw.Impact = &storeImpact
 		}
+
 		if storeCategory != "" {
 			raw.Category = &storeCategory
 		}
+
 		if storeSource != "" {
 			raw.Source = &storeSource
 		}
+
 		if storeDetails != "" {
 			raw.Details = &storeDetails
 		}
@@ -58,6 +64,7 @@ var storeCmd = &cobra.Command{
 			for i := range tags {
 				tags[i] = strings.TrimSpace(tags[i])
 			}
+
 			raw.Tags = tags
 		}
 
@@ -66,6 +73,7 @@ var storeCmd = &cobra.Command{
 			for i := range files {
 				files[i] = strings.TrimSpace(files[i])
 			}
+
 			raw.RelatedFiles = files
 		}
 
@@ -74,7 +82,8 @@ var storeCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		defer svc.Close()
+
+		defer func() { _ = svc.Close() }()
 
 		result, err := svc.Store(raw, storeProject)
 		if err != nil {
@@ -82,8 +91,11 @@ var storeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Stored: %s (id: %s)\n", storeTitle, result["id"].(string))
-		fmt.Printf("File: %s\n", result["file_path"].(string))
+		id, _ := result["id"].(string)
+		filePath, _ := result["file_path"].(string)
+
+		fmt.Printf("Stored: %s (id: %s)\n", storeTitle, id)
+		fmt.Printf("File: %s\n", filePath)
 	},
 }
 

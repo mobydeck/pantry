@@ -10,14 +10,14 @@ import (
 	"strings"
 )
 
-// OllamaProvider implements embedding generation using Ollama
+// OllamaProvider implements embedding generation using Ollama.
 type OllamaProvider struct {
 	model   string
 	baseURL string
 	client  *http.Client
 }
 
-// NewOllamaProvider creates a new Ollama embedding provider
+// NewOllamaProvider creates a new Ollama embedding provider.
 func NewOllamaProvider(model string, baseURL string) *OllamaProvider {
 	return &OllamaProvider{
 		model:   model,
@@ -35,9 +35,9 @@ type ollamaEmbedResponse struct {
 	Embedding []float64 `json:"embedding"`
 }
 
-// Embed generates an embedding vector using Ollama
+// Embed generates an embedding vector using Ollama.
 func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float32, error) {
-	url := fmt.Sprintf("%s/api/embeddings", p.baseURL)
+	url := p.baseURL + "/api/embeddings"
 
 	jsonData, err := json.Marshal(ollamaEmbedRequest{Model: p.model, Prompt: text})
 	if err != nil {
@@ -48,17 +48,20 @@ func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float32, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Ollama API: %w", err)
 	}
-	defer resp.Body.Close()
+
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Ollama API returned status %d: %s", resp.StatusCode, string(body))
+
+		return nil, fmt.Errorf("ollama API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var response ollamaEmbedResponse

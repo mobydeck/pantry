@@ -1,0 +1,62 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+linters:
+  default: all
+  disable:
+    - depguard
+    - noinlineerr
+    - paralleltest
+    - exhaustruct
+    - mnd
+    - wrapcheck
+    - tagliatelle
+    - gochecknoglobals
+    - lll
+    - ireturn
+    - interfacebloat
+    - gosec
+    - testpackage
+    - forbidigo
+    - err113
+    - gochecknoinits
+  settings:
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
+    varnamelen:
+      min-name-length: 1
+    cyclop:
+      max-complexity: 15
+    funlen:
+      lines: 150
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - funlen
+          - cyclop
+          - exhaustruct
+          - varnamelen
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

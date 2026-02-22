@@ -10,16 +10,16 @@ import (
 
 // SensitivePatterns contains regex patterns for known sensitive data formats.
 var SensitivePatterns = []string{
-	`sk_live_[a-zA-Z0-9]+`,                      // Stripe live keys
-	`sk_test_[a-zA-Z0-9]+`,                     // Stripe test keys
-	`ghp_[a-zA-Z0-9]+`,                         // GitHub personal access tokens
-	`AKIA[0-9A-Z]{16}`,                         // AWS access key IDs
-	`xoxb-[a-zA-Z0-9-]+`,                       // Slack bot tokens
-	`-----BEGIN (?:RSA )?PRIVATE KEY-----`,      // Private keys (RSA and generic)
-	`eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+`,    // JWT tokens
-	`password\s*[:=]\s*["']?.+`,                // Password fields
-	`secret\s*[:=]\s*["']?.+`,                  // Secret fields
-	`api[_-]?key\s*[:=]\s*["']?.+`,             // API key fields
+	`sk_live_[a-zA-Z0-9]+`,                 // Stripe live keys
+	`sk_test_[a-zA-Z0-9]+`,                 // Stripe test keys
+	`ghp_[a-zA-Z0-9]+`,                     // GitHub personal access tokens
+	`AKIA[0-9A-Z]{16}`,                     // AWS access key IDs
+	`xoxb-[a-zA-Z0-9-]+`,                   // Slack bot tokens
+	`-----BEGIN (?:RSA )?PRIVATE KEY-----`, // Private keys (RSA and generic)
+	`eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+`, // JWT tokens
+	`password\s*[:=]\s*["']?.+`,            // Password fields
+	`secret\s*[:=]\s*["']?.+`,              // Secret fields
+	`api[_-]?key\s*[:=]\s*["']?.+`,         // API key fields
 }
 
 // compiledBuiltins holds pre-compiled versions of SensitivePatterns.
@@ -42,11 +42,13 @@ func init() {
 // patterns once at service startup.
 func CompilePatterns(patterns []string) []*regexp.Regexp {
 	compiled := make([]*regexp.Regexp, 0, len(patterns))
+
 	for _, p := range patterns {
 		if re, err := regexp.Compile(p); err == nil {
 			compiled = append(compiled, re)
 		}
 	}
+
 	return compiled
 }
 
@@ -66,11 +68,14 @@ func RedactCompiled(text string, extra []*regexp.Regexp) string {
 	// Layer 1: Explicit <redacted> tags
 	for {
 		prev := text
+
 		text = redactedTagRe.ReplaceAllString(text, "[REDACTED]")
+
 		if prev == text {
 			break
 		}
 	}
+
 	text = strings.ReplaceAll(text, "<redacted>", "")
 	text = strings.ReplaceAll(text, "</redacted>", "")
 
@@ -94,11 +99,14 @@ func LoadPantryIgnore(path string) ([]string, error) {
 		if os.IsNotExist(err) {
 			return []string{}, nil
 		}
+
 		return nil, fmt.Errorf("failed to open .pantryignore: %w", err)
 	}
-	defer file.Close()
+
+	defer func() { _ = file.Close() }()
 
 	var patterns []string
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())

@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/cobra"
 	"pantry/internal/core"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -20,15 +21,18 @@ var (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List recent notes",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		svc, err := core.NewService("")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		defer svc.Close()
+
+		defer func() { _ = svc.Close() }()
 
 		var project *string
+
 		if listProject {
 			dir, _ := os.Getwd()
 			projectName := filepath.Base(dir)
@@ -53,6 +57,7 @@ var listCmd = &cobra.Command{
 
 		if len(results) == 0 {
 			fmt.Println("No notes found.")
+
 			return
 		}
 
@@ -60,6 +65,7 @@ var listCmd = &cobra.Command{
 
 		for _, r := range results {
 			dateStr := r.CreatedAt[:10]
+
 			dateDisplay := dateStr
 			if t, err := time.Parse("2006-01-02", dateStr); err == nil {
 				dateDisplay = t.Format("Jan 02")

@@ -63,6 +63,7 @@ func TestLoadPantryIgnore(t *testing.T) {
 	if err != nil {
 		t.Errorf("LoadPantryIgnore() error = %v, want nil", err)
 	}
+
 	if len(patterns) != 0 {
 		t.Errorf("LoadPantryIgnore() = %v, want empty slice", patterns)
 	}

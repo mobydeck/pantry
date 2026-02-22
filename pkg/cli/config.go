@@ -5,9 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"pantry/internal/config"
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-	"pantry/internal/config"
 )
 
 var configInitForce bool
@@ -15,9 +16,11 @@ var configInitForce bool
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Show or manage configuration",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
 		configPath := filepath.Join(home, "config.yaml")
+
 		cfg, err := config.LoadConfig(configPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -45,6 +48,7 @@ var configCmd = &cobra.Command{
 var configInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Generate a starter config.yaml",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
 		configPath := filepath.Join(home, "config.yaml")
@@ -52,6 +56,7 @@ var configInitCmd = &cobra.Command{
 		if _, err := os.Stat(configPath); err == nil && !configInitForce {
 			fmt.Printf("Config already exists at %s\n", configPath)
 			fmt.Println("Use --force to overwrite.")
+
 			return
 		}
 

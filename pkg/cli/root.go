@@ -14,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Version: Version,
 }
 
-// Execute runs the root command
+// Execute runs the root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

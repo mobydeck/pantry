@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -14,8 +13,7 @@ func TestGetPantryHome(t *testing.T) {
 	}
 
 	// Test with environment variable
-	os.Setenv("PANTRY_HOME", "/test/pantry")
-	defer os.Unsetenv("PANTRY_HOME")
+	t.Setenv("PANTRY_HOME", "/test/pantry")
 
 	home = GetPantryHome()
 	if home != "/test/pantry" {
@@ -29,9 +27,12 @@ func TestLoadConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("LoadConfig() error = %v, want nil", err)
 	}
+
 	if cfg == nil {
 		t.Fatal("LoadConfig() returned nil config")
 	}
+
+	//nolint:goconst
 	if cfg.Embedding.Provider != "ollama" {
 		t.Errorf("LoadConfig() default provider = %q, want %q", cfg.Embedding.Provider, "ollama")
 	}
@@ -42,6 +43,7 @@ func TestGetDefaultConfigTemplate(t *testing.T) {
 	if template == "" {
 		t.Error("GetDefaultConfigTemplate() should not return empty string")
 	}
+
 	if len(template) < 100 {
 		t.Error("GetDefaultConfigTemplate() should return substantial template")
 	}
@@ -68,6 +70,7 @@ func TestSaveConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("LoadConfig() after SaveConfig error = %v", err)
 	}
+
 	if loaded.Embedding.Model != "test-model" {
 		t.Errorf("LoadConfig() Model = %q, want %q", loaded.Embedding.Model, "test-model")
 	}

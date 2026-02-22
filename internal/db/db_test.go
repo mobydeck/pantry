@@ -12,17 +12,21 @@ import (
 func newTestDB(t *testing.T) *DB {
 	t.Helper()
 	dir := t.TempDir()
+
 	database, err := NewDB(filepath.Join(dir, "test.db"))
 	if err != nil {
 		t.Fatalf("NewDB() error = %v", err)
 	}
-	t.Cleanup(func() { database.Close() })
+
+	t.Cleanup(func() { _ = database.Close() })
+
 	return database
 }
 
 // makeItem returns a minimal valid Item for testing.
 func makeItem(title, project string) models.Item {
 	now := time.Now().UTC().Format(time.RFC3339)
+
 	return models.Item{
 		ID:        title + "-id",
 		Title:     title,
@@ -47,6 +51,7 @@ func TestInsertItem_GetItem_Roundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertItem() error = %v", err)
 	}
+
 	if rowid <= 0 {
 		t.Errorf("InsertItem() rowid = %d, want > 0", rowid)
 	}
@@ -55,21 +60,27 @@ func TestInsertItem_GetItem_Roundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem() error = %v", err)
 	}
+
 	if got == nil {
 		t.Fatal("GetItem() returned nil")
 	}
+
 	if got.Title != item.Title {
 		t.Errorf("Title = %q, want %q", got.Title, item.Title)
 	}
+
 	if got.What != item.What {
 		t.Errorf("What = %q, want %q", got.What, item.What)
 	}
+
 	if got.Why == nil || *got.Why != why {
 		t.Errorf("Why = %v, want %q", got.Why, why)
 	}
+
 	if len(got.Tags) != 2 || got.Tags[0] != "tag1" {
 		t.Errorf("Tags = %v, want [tag1 tag2]", got.Tags)
 	}
+
 	if hasDetails {
 		t.Error("hasDetails should be false when no details stored")
 	}
@@ -82,6 +93,7 @@ func TestInsertItem_NotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem() error = %v", err)
 	}
+
 	if got != nil {
 		t.Error("GetItem() should return nil for nonexistent id")
 	}
@@ -103,6 +115,7 @@ func TestInsertItem_GetDetails_Roundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem() error = %v", err)
 	}
+
 	if !hasDetails {
 		t.Error("hasDetails should be true when details stored")
 	}
@@ -111,9 +124,11 @@ func TestInsertItem_GetDetails_Roundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDetails() error = %v", err)
 	}
+
 	if d2 == nil {
 		t.Fatal("GetDetails() returned nil")
 	}
+
 	if d2.Body != details {
 		t.Errorf("Body = %q, want %q", d2.Body, details)
 	}
@@ -126,6 +141,7 @@ func TestGetDetails_NotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDetails() error = %v", err)
 	}
+
 	if detail != nil {
 		t.Error("GetDetails() should return nil for nonexistent item")
 	}
@@ -137,6 +153,7 @@ func TestFTSSearch_Match(t *testing.T) {
 	d := newTestDB(t)
 	item := makeItem("FTS Match Test", "proj")
 	item.What = "unique searchable keyword xyzzy"
+
 	_, err := d.InsertItem(item, nil)
 	if err != nil {
 		t.Fatalf("InsertItem() error = %v", err)
@@ -146,9 +163,11 @@ func TestFTSSearch_Match(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FTSSearch() error = %v", err)
 	}
+
 	if len(results) == 0 {
 		t.Error("FTSSearch() should find item with matching keyword")
 	}
+
 	if results[0].Title != item.Title {
 		t.Errorf("FTSSearch() result title = %q, want %q", results[0].Title, item.Title)
 	}
@@ -157,6 +176,7 @@ func TestFTSSearch_Match(t *testing.T) {
 func TestFTSSearch_NoMatch(t *testing.T) {
 	d := newTestDB(t)
 	item := makeItem("No Match Test", "proj")
+
 	_, err := d.InsertItem(item, nil)
 	if err != nil {
 		t.Fatalf("InsertItem() error = %v", err)
@@ -166,6 +186,7 @@ func TestFTSSearch_NoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FTSSearch() error = %v", err)
 	}
+
 	if len(results) != 0 {
 		t.Errorf("FTSSearch() should return 0 results for non-matching query, got %d", len(results))
 	}
@@ -179,17 +200,25 @@ func TestFTSSearch_ProjectFilter(t *testing.T) {
 	item2 := makeItem("Project B Item", "projectB")
 	item2.What = "unique qwerty content"
 
-	d.InsertItem(item1, nil)
-	d.InsertItem(item2, nil)
+	if _, err := d.InsertItem(item1, nil); err != nil {
+		t.Fatalf("InsertItem() error = %v", err)
+	}
+
+	if _, err := d.InsertItem(item2, nil); err != nil {
+		t.Fatalf("InsertItem() error = %v", err)
+	}
 
 	projA := "projectA"
+
 	results, err := d.FTSSearch("qwerty", 10, &projA, nil)
 	if err != nil {
 		t.Fatalf("FTSSearch() error = %v", err)
 	}
+
 	if len(results) != 1 {
 		t.Errorf("FTSSearch() with project filter should return 1 result, got %d", len(results))
 	}
+
 	if results[0].Project != "projectA" {
 		t.Errorf("FTSSearch() result project = %q, want projectA", results[0].Project)
 	}
@@ -200,6 +229,7 @@ func TestFTSSearch_ProjectFilter(t *testing.T) {
 func TestUpdateItem(t *testing.T) {
 	d := newTestDB(t)
 	item := makeItem("Update Target", "proj")
+
 	_, err := d.InsertItem(item, nil)
 	if err != nil {
 		t.Fatalf("InsertItem() error = %v", err)
@@ -207,6 +237,7 @@ func TestUpdateItem(t *testing.T) {
 
 	newWhat := "updated what field"
 	newTags := []string{"newtag"}
+
 	err = d.UpdateItem(item.ID, &newWhat, nil, nil, newTags, nil)
 	if err != nil {
 		t.Fatalf("UpdateItem() error = %v", err)
@@ -216,6 +247,7 @@ func TestUpdateItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem() after update error = %v", err)
 	}
+
 	if got.What != newWhat {
 		t.Errorf("What after update = %q, want %q", got.What, newWhat)
 	}
@@ -225,12 +257,14 @@ func TestUpdateItem_DetailsAppend(t *testing.T) {
 	d := newTestDB(t)
 	item := makeItem("Details Append Test", "proj")
 	original := "original details"
+
 	_, err := d.InsertItem(item, &original)
 	if err != nil {
 		t.Fatalf("InsertItem() error = %v", err)
 	}
 
 	appended := "new appended content"
+
 	err = d.UpdateItem(item.ID, nil, nil, nil, nil, &appended)
 	if err != nil {
 		t.Fatalf("UpdateItem() error = %v", err)
@@ -240,9 +274,11 @@ func TestUpdateItem_DetailsAppend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDetails() error = %v", err)
 	}
+
 	if detail == nil {
 		t.Fatal("GetDetails() returned nil after append")
 	}
+
 	if detail.Body == original {
 		t.Error("Details body should have been appended to")
 	}
@@ -250,6 +286,7 @@ func TestUpdateItem_DetailsAppend(t *testing.T) {
 
 func TestUpdateItem_NotFound(t *testing.T) {
 	d := newTestDB(t)
+
 	err := d.UpdateItem("nonexistent", nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("UpdateItem() should return error for nonexistent item")
@@ -261,6 +298,7 @@ func TestUpdateItem_NotFound(t *testing.T) {
 func TestDeleteItem_ExistingItem(t *testing.T) {
 	d := newTestDB(t)
 	item := makeItem("Delete Me", "proj")
+
 	_, err := d.InsertItem(item, nil)
 	if err != nil {
 		t.Fatalf("InsertItem() error = %v", err)
@@ -270,6 +308,7 @@ func TestDeleteItem_ExistingItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DeleteItem() error = %v", err)
 	}
+
 	if !deleted {
 		t.Error("DeleteItem() should return true for existing item")
 	}
@@ -279,6 +318,7 @@ func TestDeleteItem_ExistingItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem() after delete error = %v", err)
 	}
+
 	if got != nil {
 		t.Error("GetItem() should return nil after deletion")
 	}
@@ -291,6 +331,7 @@ func TestDeleteItem_NonExistent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DeleteItem() error = %v", err)
 	}
+
 	if deleted {
 		t.Error("DeleteItem() should return false for nonexistent item")
 	}
@@ -304,7 +345,9 @@ func TestListRecent_OrderByCreatedAtDesc(t *testing.T) {
 	// Insert items with different timestamps (sleep ensures distinct ordering)
 	for _, title := range []string{"First", "Second", "Third"} {
 		item := makeItem(title, "proj")
+
 		item.ID = title + "-uuid"
+
 		if _, err := d.InsertItem(item, nil); err != nil {
 			t.Fatalf("InsertItem(%s) error = %v", title, err)
 		}
@@ -314,6 +357,7 @@ func TestListRecent_OrderByCreatedAtDesc(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListRecent() error = %v", err)
 	}
+
 	if len(results) != 3 {
 		t.Errorf("ListRecent() len = %d, want 3", len(results))
 	}
@@ -321,16 +365,22 @@ func TestListRecent_OrderByCreatedAtDesc(t *testing.T) {
 
 func TestListRecent_LimitRespected(t *testing.T) {
 	d := newTestDB(t)
-	for i := 0; i < 5; i++ {
+
+	for i := range 5 {
 		item := makeItem("item", "proj")
+
 		item.ID = "item-uuid-" + string(rune('0'+i))
-		d.InsertItem(item, nil)
+
+		if _, err := d.InsertItem(item, nil); err != nil {
+			t.Fatalf("InsertItem() error = %v", err)
+		}
 	}
 
 	results, err := d.ListRecent(3, nil, nil)
 	if err != nil {
 		t.Fatalf("ListRecent() error = %v", err)
 	}
+
 	if len(results) != 3 {
 		t.Errorf("ListRecent() with limit 3 returned %d results", len(results))
 	}
@@ -345,20 +395,26 @@ func TestCountItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CountItems() error = %v", err)
 	}
+
 	if count != 0 {
 		t.Errorf("CountItems() on empty db = %d, want 0", count)
 	}
 
 	for _, title := range []string{"A", "B", "C"} {
 		item := makeItem(title, "proj")
+
 		item.ID = title + "-count-uuid"
-		d.InsertItem(item, nil)
+
+		if _, err := d.InsertItem(item, nil); err != nil {
+			t.Fatalf("InsertItem() error = %v", err)
+		}
 	}
 
 	count, err = d.CountItems(nil, nil)
 	if err != nil {
 		t.Fatalf("CountItems() error = %v", err)
 	}
+
 	if count != 3 {
 		t.Errorf("CountItems() = %d, want 3", count)
 	}
@@ -370,14 +426,22 @@ func TestCountItems_ProjectFilter(t *testing.T) {
 	itemA.ID = "alpha-uuid"
 	itemB := makeItem("B", "beta")
 	itemB.ID = "beta-uuid"
-	d.InsertItem(itemA, nil)
-	d.InsertItem(itemB, nil)
+
+	if _, err := d.InsertItem(itemA, nil); err != nil {
+		t.Fatalf("InsertItem() error = %v", err)
+	}
+
+	if _, err := d.InsertItem(itemB, nil); err != nil {
+		t.Fatalf("InsertItem() error = %v", err)
+	}
 
 	proj := "alpha"
+
 	count, err := d.CountItems(&proj, nil)
 	if err != nil {
 		t.Fatalf("CountItems() error = %v", err)
 	}
+
 	if count != 1 {
 		t.Errorf("CountItems(alpha) = %d, want 1", count)
 	}
@@ -388,6 +452,7 @@ func TestCountItems_ProjectFilter(t *testing.T) {
 func TestListAllForReindex_HasRowid(t *testing.T) {
 	d := newTestDB(t)
 	item := makeItem("Reindex Item", "proj")
+
 	_, err := d.InsertItem(item, nil)
 	if err != nil {
 		t.Fatalf("InsertItem() error = %v", err)
@@ -397,13 +462,16 @@ func TestListAllForReindex_HasRowid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAllForReindex() error = %v", err)
 	}
+
 	if len(items) != 1 {
 		t.Fatalf("ListAllForReindex() len = %d, want 1", len(items))
 	}
+
 	rowid, ok := items[0]["rowid"].(int64)
 	if !ok || rowid <= 0 {
 		t.Errorf("ListAllForReindex() rowid = %v, want int64 > 0", items[0]["rowid"])
 	}
+
 	if items[0]["title"] != item.Title {
 		t.Errorf("title = %v, want %q", items[0]["title"], item.Title)
 	}
@@ -420,10 +488,12 @@ func TestHasVecTable_FalseByDefault(t *testing.T) {
 
 func TestEnsureVecTable_CreatesTable(t *testing.T) {
 	d := newTestDB(t)
+
 	err := d.EnsureVecTable(384)
 	if err != nil {
 		t.Fatalf("EnsureVecTable(384) error = %v", err)
 	}
+
 	if !d.HasVecTable() {
 		t.Error("HasVecTable() should be true after EnsureVecTable")
 	}

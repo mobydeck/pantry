@@ -54,9 +54,11 @@ func uninstallSkill(agentHome string) bool {
 
 	// Remove the parent skills/ dir if now empty.
 	skillsDir := filepath.Join(agentHome, "skills")
+
 	entries, err := os.ReadDir(skillsDir)
+
 	if err == nil && len(entries) == 0 {
-		os.Remove(skillsDir)
+		_ = os.Remove(skillsDir)
 	}
 
 	return true

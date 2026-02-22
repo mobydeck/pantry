@@ -4,53 +4,55 @@ import (
 	"pantry/internal/models"
 )
 
-// ItemModel represents the items table in the database
+// ItemModel represents the items table in the database.
+//
+//nolint:recvcheck
 type ItemModel struct {
-	ID            string `gorm:"primaryKey;type:text"`
-	Title         string `gorm:"type:text;not null"`
-	What          string `gorm:"type:text;not null"`
+	ID            string  `gorm:"primaryKey;type:text"`
+	Title         string  `gorm:"type:text;not null"`
+	What          string  `gorm:"type:text;not null"`
 	Why           *string `gorm:"type:text"`
 	Impact        *string `gorm:"type:text"`
-	Tags          string `gorm:"type:text"` // JSON encoded
+	Tags          string  `gorm:"type:text"` // JSON encoded
 	Category      *string `gorm:"type:text"`
-	Project       string `gorm:"type:text;not null"`
+	Project       string  `gorm:"type:text;not null"`
 	Source        *string `gorm:"type:text"`
-	RelatedFiles  string `gorm:"type:text"` // JSON encoded
-	FilePath      string `gorm:"type:text;not null"`
-	SectionAnchor string `gorm:"type:text"`
-	CreatedAt     string `gorm:"type:text;not null"`
-	UpdatedAt     string `gorm:"type:text;not null"`
-	UpdatedCount  int    `gorm:"default:0"`
+	RelatedFiles  string  `gorm:"type:text"` // JSON encoded
+	FilePath      string  `gorm:"type:text;not null"`
+	SectionAnchor string  `gorm:"type:text"`
+	CreatedAt     string  `gorm:"type:text;not null"`
+	UpdatedAt     string  `gorm:"type:text;not null"`
+	UpdatedCount  int     `gorm:"default:0"`
 }
 
-// TableName specifies the table name for GORM
+// TableName specifies the table name for GORM.
 func (ItemModel) TableName() string {
 	return "items"
 }
 
-// ItemDetailModel represents the item_details table
+// ItemDetailModel represents the item_details table.
 type ItemDetailModel struct {
 	ItemID string `gorm:"primaryKey;type:text"`
 	Body   string `gorm:"type:text;not null"`
 }
 
-// TableName specifies the table name for GORM
+// TableName specifies the table name for GORM.
 func (ItemDetailModel) TableName() string {
 	return "item_details"
 }
 
-// MetaModel represents the meta table
+// MetaModel represents the meta table.
 type MetaModel struct {
 	Key   string `gorm:"primaryKey;type:text"`
 	Value string `gorm:"type:text;not null"`
 }
 
-// TableName specifies the table name for GORM
+// TableName specifies the table name for GORM.
 func (MetaModel) TableName() string {
 	return "meta"
 }
 
-// ToItem converts ItemModel to models.Item
+// ToItem converts ItemModel to models.Item.
 func (im *ItemModel) ToItem() models.Item {
 	item := models.Item{
 		ID:            im.ID,
@@ -66,12 +68,15 @@ func (im *ItemModel) ToItem() models.Item {
 	if im.Why != nil {
 		item.Why = im.Why
 	}
+
 	if im.Impact != nil {
 		item.Impact = im.Impact
 	}
+
 	if im.Category != nil {
 		item.Category = im.Category
 	}
+
 	if im.Source != nil {
 		item.Source = im.Source
 	}
@@ -79,7 +84,7 @@ func (im *ItemModel) ToItem() models.Item {
 	return item
 }
 
-// FromItem converts models.Item to ItemModel
+// FromItem converts models.Item to ItemModel.
 func (im *ItemModel) FromItem(item models.Item, tagsJSON, relatedFilesJSON string) {
 	im.ID = item.ID
 	im.Title = item.Title

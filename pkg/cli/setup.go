@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,39 +16,40 @@ var (
 	setupProject   bool
 )
 
+type agentFunc func(configDir string, project bool) (map[string]string, error)
+
+func runAgentCmd(agent string, handlers map[string]agentFunc, configDir string, project bool) {
+	fn, ok := handlers[agent]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
+		fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode, roocode\n")
+		os.Exit(1)
+	}
+
+	result, err := fn(configDir, project)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(result["message"])
+}
+
 var setupCmd = &cobra.Command{
 	Use:   "setup [agent]",
 	Short: "Install Pantry hooks for an agent",
 	Args:  cobra.ExactArgs(1),
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
-		agent := args[0]
-
-		var result map[string]string
-		var err error
-
-		switch agent {
-		case "claude", "claude-code":
-			result, err = setupClaudeCode(setupConfigDir, setupProject)
-		case "cursor":
-			result, err = setupCursor(setupConfigDir, setupProject)
-		case "codex":
-			result, err = setupCodex(setupConfigDir, setupProject)
-		case "opencode":
-			result, err = setupOpenCode(setupProject)
-		case "roo", "roocode":
-			result, err = setupRooCode(setupConfigDir, setupProject)
-		default:
-			fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
-			fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode, roocode\n")
-			os.Exit(1)
-		}
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Println(result["message"])
+		runAgentCmd(args[0], map[string]agentFunc{
+			"claude":      setupClaudeCode,
+			"claude-code": setupClaudeCode,
+			"cursor":      setupCursor,
+			"codex":       setupCodex,
+			"opencode":    func(_ string, project bool) (map[string]string, error) { return setupOpenCode(project) },
+			"roo":         setupRooCode,
+			"roocode":     setupRooCode,
+		}, setupConfigDir, setupProject)
 	},
 }
 
@@ -55,35 +57,17 @@ var uninstallCmd = &cobra.Command{
 	Use:   "uninstall [agent]",
 	Short: "Remove Pantry hooks for an agent",
 	Args:  cobra.ExactArgs(1),
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
-		agent := args[0]
-
-		var result map[string]string
-		var err error
-
-		switch agent {
-		case "claude", "claude-code":
-			result, err = uninstallClaudeCode(setupConfigDir, setupProject)
-		case "cursor":
-			result, err = uninstallCursor(setupConfigDir, setupProject)
-		case "codex":
-			result, err = uninstallCodex(setupConfigDir, setupProject)
-		case "opencode":
-			result, err = uninstallOpenCode(setupProject)
-		case "roo", "roocode":
-			result, err = uninstallRooCode(setupConfigDir, setupProject)
-		default:
-			fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
-			fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, codex, opencode, roocode\n")
-			os.Exit(1)
-		}
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Println(result["message"])
+		runAgentCmd(args[0], map[string]agentFunc{
+			"claude":      uninstallClaudeCode,
+			"claude-code": uninstallClaudeCode,
+			"cursor":      uninstallCursor,
+			"codex":       uninstallCodex,
+			"opencode":    func(_ string, project bool) (map[string]string, error) { return uninstallOpenCode(project) },
+			"roo":         uninstallRooCode,
+			"roocode":     uninstallRooCode,
+		}, setupConfigDir, setupProject)
 	},
 }
 
@@ -98,29 +82,35 @@ func resolveConfigDir(agentDotDir string, configDir string, project bool) string
 	if configDir != "" {
 		return configDir
 	}
+
 	if project {
 		dir, _ := os.Getwd()
+
 		return filepath.Join(dir, agentDotDir)
 	}
+
 	home, _ := os.UserHomeDir()
+
 	return filepath.Join(home, agentDotDir)
 }
 
 func setupClaudeCode(configDir string, project bool) (map[string]string, error) {
 	skillTarget := resolveConfigDir(".claude", configDir, project)
 
-	mcpEntry := map[string]interface{}{
+	mcpEntry := map[string]any{
 		"type":    "stdio",
 		"command": "pantry",
 		"args":    []string{"mcp"},
-		"env":     map[string]interface{}{},
+		"env":     map[string]any{},
 	}
 
 	var configPath string
+
 	if project {
 		// Project scope: write to .mcp.json in the current directory.
 		// This is checked into source control and shared with the team.
 		cwd, _ := os.Getwd()
+
 		configPath = filepath.Join(cwd, ".mcp.json")
 		if err := writeMCPJSON(configPath, mcpEntry); err != nil {
 			return nil, err
@@ -128,73 +118,80 @@ func setupClaudeCode(configDir string, project bool) (map[string]string, error) 
 	} else {
 		// User scope: write to ~/.claude.json top-level mcpServers.
 		home, _ := os.UserHomeDir()
+
 		configPath = filepath.Join(home, ".claude.json")
 		if err := writeClaudeJSONUserMCP(configPath, mcpEntry); err != nil {
 			return nil, err
 		}
 	}
 
-	msg := fmt.Sprintf("Installed Pantry MCP server in %s", configPath)
+	msg := "Installed Pantry MCP server in " + configPath
 	if installSkill(skillTarget) {
-		msg += " and skill"
+		msg += " and skill" //nolint:goconst
 	}
 
 	return map[string]string{"message": msg}, nil
 }
 
 // writeMCPJSON writes an MCP server entry into a .mcp.json file (project scope).
-func writeMCPJSON(configPath string, entry map[string]interface{}) error {
-	var config map[string]interface{}
+func writeMCPJSON(configPath string, entry map[string]any) error {
+	var config map[string]any
 	if data, err := os.ReadFile(configPath); err == nil {
 		if err := json.Unmarshal(data, &config); err != nil {
 			return fmt.Errorf("failed to parse existing config: %w", err)
 		}
 	} else {
-		config = make(map[string]interface{})
+		config = make(map[string]any)
 	}
 
-	mcpServers, _ := config["mcpServers"].(map[string]interface{})
+	mcpServers, _ := config["mcpServers"].(map[string]any)
 	if mcpServers == nil {
-		mcpServers = make(map[string]interface{})
+		mcpServers = make(map[string]any)
 		config["mcpServers"] = mcpServers
 	}
+
 	mcpServers["pantry"] = entry
 
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
+
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
+
 	return nil
 }
 
 // writeClaudeJSONUserMCP writes an MCP server entry into ~/.claude.json top-level mcpServers (user scope).
-func writeClaudeJSONUserMCP(configPath string, entry map[string]interface{}) error {
-	var root map[string]interface{}
+func writeClaudeJSONUserMCP(configPath string, entry map[string]any) error {
+	var root map[string]any
 	if data, err := os.ReadFile(configPath); err == nil {
 		if err := json.Unmarshal(data, &root); err != nil {
 			return fmt.Errorf("failed to parse existing config: %w", err)
 		}
 	} else {
-		root = make(map[string]interface{})
+		root = make(map[string]any)
 	}
 
-	mcpServers, _ := root["mcpServers"].(map[string]interface{})
+	mcpServers, _ := root["mcpServers"].(map[string]any)
 	if mcpServers == nil {
-		mcpServers = make(map[string]interface{})
+		mcpServers = make(map[string]any)
 		root["mcpServers"] = mcpServers
 	}
+
 	mcpServers["pantry"] = entry
 
 	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
+
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
+
 	return nil
 }
 
@@ -203,23 +200,23 @@ func setupCursor(configDir string, project bool) (map[string]string, error) {
 	configPath := filepath.Join(target, "mcp.json")
 
 	// Read existing config or create new
-	var config map[string]interface{}
+	var config map[string]any
 	if data, err := os.ReadFile(configPath); err == nil {
 		if err := json.Unmarshal(data, &config); err != nil {
 			return nil, fmt.Errorf("failed to parse existing config: %w", err)
 		}
 	} else {
-		config = make(map[string]interface{})
+		config = make(map[string]any)
 	}
 
 	// Add MCP server config
-	mcpServers, ok := config["mcpServers"].(map[string]interface{})
+	mcpServers, ok := config["mcpServers"].(map[string]any)
 	if !ok {
-		mcpServers = make(map[string]interface{})
+		mcpServers = make(map[string]any)
 		config["mcpServers"] = mcpServers
 	}
 
-	mcpServers["pantry"] = map[string]interface{}{
+	mcpServers["pantry"] = map[string]any{
 		"command": "pantry",
 		"args":    []string{"mcp"},
 	}
@@ -238,7 +235,7 @@ func setupCursor(configDir string, project bool) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to write config: %w", err)
 	}
 
-	msg := fmt.Sprintf("Installed Pantry MCP server in %s", configPath)
+	msg := "Installed Pantry MCP server in " + configPath
 	if installSkill(target) {
 		msg += " and skill"
 	}
@@ -258,16 +255,23 @@ func setupCodex(configDir string, project bool) (map[string]string, error) {
 	// Codex uses [mcp_servers.<name>] in config.toml.
 	// Only append the block if it's not already present (idempotent).
 	const pantryTOML = "\n[mcp_servers.pantry]\ncommand = \"pantry\"\nargs = [\"mcp\"]\n"
+
 	existing, _ := os.ReadFile(configPath)
 	if !bytes.Contains(existing, []byte("[mcp_servers.pantry]")) {
 		f, err := os.OpenFile(configPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open config file: %w", err)
 		}
+
 		_, writeErr := f.WriteString(pantryTOML)
-		f.Close()
+		closeErr := f.Close()
+
 		if writeErr != nil {
 			return nil, fmt.Errorf("failed to write config: %w", writeErr)
+		}
+
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to close config file: %w", closeErr)
 		}
 	}
 
@@ -278,16 +282,17 @@ func setupCodex(configDir string, project bool) (map[string]string, error) {
 		"- `pantry store` - Store a note\n" +
 		"- `pantry search` - Search notes\n" +
 		"- `pantry list` - List recent notes\n"
+
 	existingAgents, _ := os.ReadFile(agentsPath)
 	if !bytes.Contains(existingAgents, []byte("## Pantry")) {
 		f2, err := os.OpenFile(agentsPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
-			f2.WriteString(pantryAgentsSection)
-			f2.Close()
+			_, _ = f2.WriteString(pantryAgentsSection)
+			_ = f2.Close()
 		}
 	}
 
-	msg := fmt.Sprintf("Installed Pantry in %s", target)
+	msg := "Installed Pantry in " + target
 	if installSkill(target) {
 		msg += " (MCP + AGENTS.md + skill)"
 	}
@@ -297,6 +302,7 @@ func setupCodex(configDir string, project bool) (map[string]string, error) {
 
 func setupOpenCode(project bool) (map[string]string, error) {
 	var configPath string
+
 	if project {
 		dir, _ := os.Getwd()
 		configPath = filepath.Join(dir, "opencode.json")
@@ -306,23 +312,23 @@ func setupOpenCode(project bool) (map[string]string, error) {
 	}
 
 	// Read existing config or create new
-	var config map[string]interface{}
+	var config map[string]any
 	if data, err := os.ReadFile(configPath); err == nil {
 		if err := json.Unmarshal(data, &config); err != nil {
 			return nil, fmt.Errorf("failed to parse existing config: %w", err)
 		}
 	} else {
-		config = make(map[string]interface{})
+		config = make(map[string]any)
 	}
 
 	// OpenCode uses a "mcp" key (not "mcpServers"), and command must be an array.
-	mcp, _ := config["mcp"].(map[string]interface{})
+	mcp, _ := config["mcp"].(map[string]any)
 	if mcp == nil {
-		mcp = make(map[string]interface{})
+		mcp = make(map[string]any)
 		config["mcp"] = mcp
 	}
 
-	mcp["pantry"] = map[string]interface{}{
+	mcp["pantry"] = map[string]any{
 		"type":    "local",
 		"command": []string{"pantry", "mcp"},
 	}
@@ -342,65 +348,65 @@ func setupOpenCode(project bool) (map[string]string, error) {
 	}
 
 	return map[string]string{
-		"message": fmt.Sprintf("Installed Pantry MCP server in %s", configPath),
+		"message": "Installed Pantry MCP server in " + configPath,
 	}, nil
+}
+
+// removePantryFromMCPJSON reads a JSON config file, removes the "pantry" key from
+// "mcpServers", and writes the result back.
+func removePantryFromMCPJSON(configPath string) error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config: %w", err)
+	}
+
+	var config map[string]any
+	if err := json.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	if mcpServers, ok := config["mcpServers"].(map[string]any); ok {
+		delete(mcpServers, "pantry")
+	}
+
+	newData, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, newData, 0644); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
 }
 
 func uninstallClaudeCode(configDir string, project bool) (map[string]string, error) {
 	skillTarget := resolveConfigDir(".claude", configDir, project)
 
 	var configPath string
+
 	if project {
 		cwd, _ := os.Getwd()
+
 		configPath = filepath.Join(cwd, ".mcp.json")
 		if _, err := os.Stat(configPath); os.IsNotExist(err) {
 			return map[string]string{"message": "Pantry not found in project .mcp.json"}, nil
 		}
-		data, err := os.ReadFile(configPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read config: %w", err)
-		}
-		var config map[string]interface{}
-		if err := json.Unmarshal(data, &config); err != nil {
-			return nil, fmt.Errorf("failed to parse config: %w", err)
-		}
-		if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
-			delete(mcpServers, "pantry")
-		}
-		newData, err := json.MarshalIndent(config, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal config: %w", err)
-		}
-		if err := os.WriteFile(configPath, newData, 0644); err != nil {
-			return nil, fmt.Errorf("failed to write config: %w", err)
-		}
 	} else {
 		home, _ := os.UserHomeDir()
+
 		configPath = filepath.Join(home, ".claude.json")
 		if _, err := os.Stat(configPath); os.IsNotExist(err) {
 			return map[string]string{"message": "Pantry not found in Claude Code config"}, nil
 		}
-		data, err := os.ReadFile(configPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read config: %w", err)
-		}
-		var root map[string]interface{}
-		if err := json.Unmarshal(data, &root); err != nil {
-			return nil, fmt.Errorf("failed to parse config: %w", err)
-		}
-		if mcpServers, ok := root["mcpServers"].(map[string]interface{}); ok {
-			delete(mcpServers, "pantry")
-		}
-		newData, err := json.MarshalIndent(root, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal config: %w", err)
-		}
-		if err := os.WriteFile(configPath, newData, 0644); err != nil {
-			return nil, fmt.Errorf("failed to write config: %w", err)
-		}
 	}
 
-	msg := fmt.Sprintf("Removed Pantry from %s", configPath)
+	if err := removePantryFromMCPJSON(configPath); err != nil {
+		return nil, err
+	}
+
+	msg := "Removed Pantry from " + configPath
 	if uninstallSkill(skillTarget) {
 		msg += " and skill"
 	}
@@ -416,30 +422,11 @@ func uninstallCursor(configDir string, project bool) (map[string]string, error) 
 		return map[string]string{"message": "Pantry not found in Cursor config"}, nil
 	}
 
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+	if err := removePantryFromMCPJSON(configPath); err != nil {
+		return nil, err
 	}
 
-	var config map[string]interface{}
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
-	}
-
-	if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
-		delete(mcpServers, "pantry")
-	}
-
-	newData, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	if err := os.WriteFile(configPath, newData, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write config: %w", err)
-	}
-
-	msg := fmt.Sprintf("Removed Pantry from %s", configPath)
+	msg := "Removed Pantry from " + configPath
 	if uninstallSkill(target) {
 		msg += " and skill"
 	}
@@ -449,15 +436,19 @@ func uninstallCursor(configDir string, project bool) (map[string]string, error) 
 
 func uninstallCodex(configDir string, project bool) (map[string]string, error) {
 	target := resolveConfigDir(".codex", configDir, project)
+
 	msg := "Codex uninstall: manually remove Pantry entries from .codex/config.toml and AGENTS.md"
+
 	if uninstallSkill(target) {
 		msg += ". Removed skill."
 	}
+
 	return map[string]string{"message": msg}, nil
 }
 
 func uninstallOpenCode(project bool) (map[string]string, error) {
 	var configPath string
+
 	if project {
 		dir, _ := os.Getwd()
 		configPath = filepath.Join(dir, "opencode.json")
@@ -475,12 +466,12 @@ func uninstallOpenCode(project bool) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
-	var config map[string]interface{}
+	var config map[string]any
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	if mcp, ok := config["mcp"].(map[string]interface{}); ok {
+	if mcp, ok := config["mcp"].(map[string]any); ok {
 		delete(mcp, "pantry")
 	}
 
@@ -494,38 +485,40 @@ func uninstallOpenCode(project bool) (map[string]string, error) {
 	}
 
 	return map[string]string{
-		"message": fmt.Sprintf("Removed Pantry from %s", configPath),
+		"message": "Removed Pantry from " + configPath,
 	}, nil
 }
 
 func setupRooCode(configDir string, project bool) (map[string]string, error) {
 	var target string
+	//nolint:gocritic
 	if configDir != "" {
 		target = configDir
 	} else if project {
 		cwd, _ := os.Getwd()
 		target = filepath.Join(cwd, ".roo")
 	} else {
-		return nil, fmt.Errorf("RooCode global MCP config is managed via VS Code settings.\nUse --project (-p) to install in the current project's .roo/mcp.json instead")
+		return nil, errors.New("RooCode global MCP config is managed via VS Code settings.\nUse --project (-p) to install in the current project's .roo/mcp.json instead")
 	}
 
 	configPath := filepath.Join(target, "mcp.json")
 
-	var config map[string]interface{}
+	var config map[string]any
 	if data, err := os.ReadFile(configPath); err == nil {
 		if err := json.Unmarshal(data, &config); err != nil {
 			return nil, fmt.Errorf("failed to parse existing config: %w", err)
 		}
 	} else {
-		config = make(map[string]interface{})
+		config = make(map[string]any)
 	}
 
-	mcpServers, _ := config["mcpServers"].(map[string]interface{})
+	mcpServers, _ := config["mcpServers"].(map[string]any)
 	if mcpServers == nil {
-		mcpServers = make(map[string]interface{})
+		mcpServers = make(map[string]any)
 		config["mcpServers"] = mcpServers
 	}
-	mcpServers["pantry"] = map[string]interface{}{
+
+	mcpServers["pantry"] = map[string]any{
 		"command": "pantry",
 		"args":    []string{"mcp"},
 	}
@@ -538,24 +531,26 @@ func setupRooCode(configDir string, project bool) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
+
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return nil, fmt.Errorf("failed to write config: %w", err)
 	}
 
 	return map[string]string{
-		"message": fmt.Sprintf("Installed Pantry MCP server in %s", configPath),
+		"message": "Installed Pantry MCP server in " + configPath,
 	}, nil
 }
 
 func uninstallRooCode(configDir string, project bool) (map[string]string, error) {
 	var target string
+	//nolint:gocritic
 	if configDir != "" {
 		target = configDir
 	} else if project {
 		cwd, _ := os.Getwd()
 		target = filepath.Join(cwd, ".roo")
 	} else {
-		return nil, fmt.Errorf("RooCode global MCP config is managed via VS Code settings.\nUse --project (-p) to uninstall from the current project's .roo/mcp.json instead")
+		return nil, errors.New("RooCode global MCP config is managed via VS Code settings.\nUse --project (-p) to uninstall from the current project's .roo/mcp.json instead")
 	}
 
 	configPath := filepath.Join(target, "mcp.json")
@@ -569,12 +564,12 @@ func uninstallRooCode(configDir string, project bool) (map[string]string, error)
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
-	var config map[string]interface{}
+	var config map[string]any
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
+	if mcpServers, ok := config["mcpServers"].(map[string]any); ok {
 		delete(mcpServers, "pantry")
 	}
 
@@ -582,11 +577,12 @@ func uninstallRooCode(configDir string, project bool) (map[string]string, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
+
 	if err := os.WriteFile(configPath, newData, 0644); err != nil {
 		return nil, fmt.Errorf("failed to write config: %w", err)
 	}
 
 	return map[string]string{
-		"message": fmt.Sprintf("Removed Pantry from %s", configPath),
+		"message": "Removed Pantry from " + configPath,
 	}, nil
 }

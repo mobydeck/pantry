@@ -22,17 +22,20 @@ func normalizeScores(results []models.SearchResult) {
 	if len(results) == 0 {
 		return
 	}
-	max := results[0].Score
+
+	maxScore := results[0].Score
 	for _, r := range results {
-		if r.Score > max {
-			max = r.Score
+		if r.Score > maxScore {
+			maxScore = r.Score
 		}
 	}
-	if max <= 0 {
+
+	if maxScore <= 0 {
 		return
 	}
+
 	for i := range results {
-		results[i].Score /= max
+		results[i].Score /= maxScore
 	}
 }
 
@@ -44,11 +47,13 @@ func MergeResults(ftsResults []models.SearchResult, vecResults []models.SearchRe
 
 	// Combine with weighted scoring, dedup by ID
 	scores := make(map[string]*models.SearchResult)
+
 	for _, r := range ftsResults {
 		result := r
 		result.Score = ftsWeight * r.Score
 		scores[r.ID] = &result
 	}
+
 	for _, r := range vecResults {
 		if existing, ok := scores[r.ID]; ok {
 			existing.Score += vecWeight * r.Score
@@ -71,10 +76,11 @@ func MergeResults(ftsResults []models.SearchResult, vecResults []models.SearchRe
 	if len(ranked) > limit {
 		return ranked[:limit]
 	}
+
 	return ranked
 }
 
-// TieredSearch performs FTS-first tiered search that only calls embed when FTS results are sparse
+// TieredSearch performs FTS-first tiered search that only calls embed when FTS results are sparse.
 func TieredSearch(ctx context.Context, store db.Store, embeddingProvider embeddings.Provider, query string, limit int, minFTSResults int, project *string, source *string) ([]models.SearchResult, error) {
 	ftsResults, err := store.FTSSearch(query, limit*2, project, source)
 	if err != nil {
@@ -88,6 +94,7 @@ func TieredSearch(ctx context.Context, store db.Store, embeddingProvider embeddi
 		if len(ftsResults) > limit {
 			return ftsResults[:limit], nil
 		}
+
 		return ftsResults, nil
 	}
 
@@ -96,6 +103,7 @@ func TieredSearch(ctx context.Context, store db.Store, embeddingProvider embeddi
 		if len(ftsResults) > limit {
 			return ftsResults[:limit], nil
 		}
+
 		return ftsResults, nil
 	}
 
@@ -106,6 +114,7 @@ func TieredSearch(ctx context.Context, store db.Store, embeddingProvider embeddi
 		if len(ftsResults) > limit {
 			return ftsResults[:limit], nil
 		}
+
 		return ftsResults, nil
 	}
 
@@ -115,13 +124,14 @@ func TieredSearch(ctx context.Context, store db.Store, embeddingProvider embeddi
 		if len(ftsResults) > limit {
 			return ftsResults[:limit], nil
 		}
+
 		return ftsResults, nil
 	}
 
 	return MergeResults(ftsResults, vecResults, DefaultFTSWeight, DefaultVecWeight, limit), nil
 }
 
-// HybridSearch runs FTS5 and optionally vector search, merges results
+// HybridSearch runs FTS5 and optionally vector search, merges results.
 func HybridSearch(ctx context.Context, store db.Store, embeddingProvider embeddings.Provider, query string, limit int, project *string, source *string) ([]models.SearchResult, error) {
 	ftsResults, err := store.FTSSearch(query, limit*2, project, source)
 	if err != nil {
@@ -135,6 +145,7 @@ func HybridSearch(ctx context.Context, store db.Store, embeddingProvider embeddi
 		if len(ftsResults) > limit {
 			return ftsResults[:limit], nil
 		}
+
 		return ftsResults, nil
 	}
 
@@ -144,6 +155,7 @@ func HybridSearch(ctx context.Context, store db.Store, embeddingProvider embeddi
 		if len(ftsResults) > limit {
 			return ftsResults[:limit], nil
 		}
+
 		return ftsResults, nil
 	}
 
@@ -153,6 +165,7 @@ func HybridSearch(ctx context.Context, store db.Store, embeddingProvider embeddi
 		if len(ftsResults) > limit {
 			return ftsResults[:limit], nil
 		}
+
 		return ftsResults, nil
 	}
 

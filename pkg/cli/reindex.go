@@ -4,20 +4,23 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"pantry/internal/core"
+
+	"github.com/spf13/cobra"
 )
 
 var reindexCmd = &cobra.Command{
 	Use:   "reindex",
 	Short: "Rebuild vector index with current embedding provider",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		svc, err := core.NewService("")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		defer svc.Close()
+
+		defer func() { _ = svc.Close() }()
 
 		// Check if there are any notes
 		// Simplified - would need to get count from service
@@ -25,6 +28,7 @@ var reindexCmd = &cobra.Command{
 
 		progressCallback := func(current, total int) {
 			fmt.Printf("  %d/%d\r", current, total)
+
 			if current == total {
 				fmt.Println()
 			}

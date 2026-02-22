@@ -7,8 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"pantry/internal/config"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -19,6 +20,7 @@ var (
 var logCmd = &cobra.Command{
 	Use:   "log",
 	Short: "List daily note logs",
+	//nolint:revive
 	Run: func(cmd *cobra.Command, args []string) {
 		home := config.GetPantryHome()
 		shelvesDir := filepath.Join(home, "shelves")
@@ -31,6 +33,7 @@ var logCmd = &cobra.Command{
 		entries, err := os.ReadDir(shelvesDir)
 		if err != nil {
 			fmt.Println("No logs found.")
+
 			return
 		}
 
@@ -61,6 +64,7 @@ var logCmd = &cobra.Command{
 
 		if len(logFiles) == 0 {
 			fmt.Println("No logs found.")
+
 			return
 		}
 
@@ -70,10 +74,12 @@ var logCmd = &cobra.Command{
 		})
 
 		fmt.Println("\nLogs:")
+
 		for i, lf := range logFiles {
 			if i >= logLimit {
 				break
 			}
+
 			dateStr := strings.Replace(lf.fname, "-notes.md", "", 1)
 			fmt.Printf("  %s | %s\n", dateStr, lf.project)
 		}

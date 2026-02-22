@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// EmbeddingConfig holds embedding provider configuration
+// EmbeddingConfig holds embedding provider configuration.
 type EmbeddingConfig struct {
 	Provider string  `yaml:"provider"`
 	Model    string  `yaml:"model"`
@@ -16,28 +17,30 @@ type EmbeddingConfig struct {
 	APIKey   *string `yaml:"api_key"`
 }
 
-// ContextConfig holds context retrieval configuration
+// ContextConfig holds context retrieval configuration.
 type ContextConfig struct {
-	Semantic   string `yaml:"semantic"`    // auto | always | never
-	TopupRecent bool  `yaml:"topup_recent"`
+	Semantic    string `yaml:"semantic"` // auto | always | never
+	TopupRecent bool   `yaml:"topup_recent"`
 }
 
-// Config holds the complete configuration
+// Config holds the complete configuration.
 type Config struct {
 	Embedding EmbeddingConfig `yaml:"embedding"`
 	Context   ContextConfig   `yaml:"context"`
 }
 
-// GetPantryHome returns the pantry home directory
+// GetPantryHome returns the pantry home directory.
 func GetPantryHome() string {
 	if home := os.Getenv("PANTRY_HOME"); home != "" {
 		return home
 	}
+
 	userHome, _ := os.UserHomeDir()
+
 	return filepath.Join(userHome, ".pantry")
 }
 
-// LoadConfig loads configuration from a YAML file
+// LoadConfig loads configuration from a YAML file.
 func LoadConfig(path string) (*Config, error) {
 	config := &Config{
 		Embedding: EmbeddingConfig{
@@ -45,7 +48,7 @@ func LoadConfig(path string) (*Config, error) {
 			Model:    "nomic-embed-text",
 		},
 		Context: ContextConfig{
-			Semantic:   "auto",
+			Semantic:    "auto",
 			TopupRecent: true,
 		},
 	}
@@ -56,6 +59,7 @@ func LoadConfig(path string) (*Config, error) {
 			// Return defaults if file doesn't exist
 			return config, nil
 		}
+
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
@@ -67,12 +71,15 @@ func LoadConfig(path string) (*Config, error) {
 	if config.Embedding.Provider == "" {
 		config.Embedding.Provider = "ollama"
 	}
+
 	if config.Embedding.Model == "" {
 		config.Embedding.Model = "nomic-embed-text"
 	}
+
 	if config.Embedding.BaseURL == nil && config.Embedding.Provider == "ollama" {
 		config.Embedding.BaseURL = stringPtr("http://localhost:11434")
 	}
+
 	if config.Context.Semantic == "" {
 		config.Context.Semantic = "auto"
 	}
@@ -83,15 +90,19 @@ func LoadConfig(path string) (*Config, error) {
 	if v := os.Getenv("PANTRY_EMBEDDING_PROVIDER"); v != "" {
 		config.Embedding.Provider = v
 	}
+
 	if v := os.Getenv("PANTRY_EMBEDDING_MODEL"); v != "" {
 		config.Embedding.Model = v
 	}
+
 	if v := os.Getenv("PANTRY_EMBEDDING_API_KEY"); v != "" {
 		config.Embedding.APIKey = &v
 	}
+
 	if v := os.Getenv("PANTRY_EMBEDDING_BASE_URL"); v != "" {
 		config.Embedding.BaseURL = &v
 	}
+
 	if v := os.Getenv("PANTRY_CONTEXT_SEMANTIC"); v != "" {
 		config.Context.Semantic = v
 	}
@@ -106,22 +117,26 @@ func (c *Config) Validate() error {
 	if !validProviders[c.Embedding.Provider] {
 		return fmt.Errorf("invalid embedding.provider %q: must be one of ollama, openai, openrouter", c.Embedding.Provider)
 	}
+
 	if c.Embedding.Model == "" {
-		return fmt.Errorf("embedding.model must not be empty")
+		return errors.New("embedding.model must not be empty")
 	}
+
 	validSemantic := map[string]bool{"auto": true, "always": true, "never": true}
 	if !validSemantic[c.Context.Semantic] {
 		return fmt.Errorf("invalid context.semantic %q: must be one of auto, always, never", c.Context.Semantic)
 	}
+
 	if c.Embedding.Provider == "openai" || c.Embedding.Provider == "openrouter" {
 		if c.Embedding.APIKey == nil || *c.Embedding.APIKey == "" {
 			return fmt.Errorf("embedding.api_key is required for provider %q", c.Embedding.Provider)
 		}
 	}
+
 	return nil
 }
 
-// SaveConfig saves configuration to a YAML file
+// SaveConfig saves configuration to a YAML file.
 func SaveConfig(path string, config *Config) error {
 	data, err := yaml.Marshal(config)
 	if err != nil {
@@ -139,7 +154,7 @@ func SaveConfig(path string, config *Config) error {
 	return nil
 }
 
-// GetDefaultConfigTemplate returns a default config template as a string
+// GetDefaultConfigTemplate returns a default config template as a string.
 func GetDefaultConfigTemplate() string {
 	return `# Pantry configuration
 # Docs: https://github.com/your-org/pantry
