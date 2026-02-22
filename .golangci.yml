@@ -42,6 +42,7 @@ linters:
       - third_party$
       - builtin$
       - examples$
+      - gormlite
     rules:
       - path: '(.+)_test\.go'
         linters:

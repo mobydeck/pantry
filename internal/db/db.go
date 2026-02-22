@@ -5,18 +5,38 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/bits"
 	"strconv"
 	"strings"
 	"time"
 
 	// used to import sqlite vec bindings.
 	_ "github.com/asg017/sqlite-vec-go-bindings/ncruces"
-	"github.com/ncruces/go-sqlite3/gormlite"
+	sqlite3 "github.com/ncruces/go-sqlite3"
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"pantry/internal/gormlite"
 	"pantry/internal/models"
 )
+
+func init() {
+	// sqlite-vec WASM binary uses atomic instructions (i32.atomic.store).
+	// go-sqlite3 v0.30+ no longer enables the threads feature by default,
+	// so we must set RuntimeConfig before the first connection is opened.
+	cfg := wazero.NewRuntimeConfig()
+	if bits.UintSize < 64 {
+		cfg = cfg.WithMemoryLimitPages(512) // 32MB
+	} else {
+		cfg = cfg.WithMemoryLimitPages(4096) // 256MB
+	}
+
+	cfg = cfg.WithCoreFeatures(api.CoreFeaturesV2 | experimental.CoreFeaturesThreads)
+	sqlite3.RuntimeConfig = cfg
+}
 
 // Compile-time check that *DB satisfies the Store interface.
 var _ Store = (*DB)(nil)
