@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -17,9 +18,9 @@ var (
 	setupProject   bool
 )
 
-type agentFunc func(configDir string, project bool) (map[string]string, error)
+type agentFunc func(configDir string, project bool, fastContext bool) (map[string]string, error)
 
-func runAgentCmd(agent string, handlers map[string]agentFunc, configDir string, project bool) {
+func runAgentCmd(agent string, handlers map[string]agentFunc, configDir string, project bool, isSetup bool) {
 	fn, ok := handlers[agent]
 	if !ok {
 		fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
@@ -27,7 +28,18 @@ func runAgentCmd(agent string, handlers map[string]agentFunc, configDir string, 
 		os.Exit(1)
 	}
 
-	result, err := fn(configDir, project)
+	fastContext := false
+	if isSetup && agent != "windsurf" {
+		fmt.Print("install fast context? yes/no (default no): ")
+		reader := bufio.NewReader(os.Stdin)
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "yes" || response == "y" {
+			fastContext = true
+		}
+	}
+
+	result, err := fn(configDir, project, fastContext)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -49,10 +61,12 @@ var setupCmd = &cobra.Command{
 			"windsurf":    setupWindsurf,
 			"antigravity": setupAntigravity,
 			"codex":       setupCodex,
-			"opencode":    func(_ string, project bool) (map[string]string, error) { return setupOpenCode(project) },
-			"roo":         setupRooCode,
-			"roocode":     setupRooCode,
-		}, setupConfigDir, setupProject)
+			"opencode": func(_ string, project bool, fast bool) (map[string]string, error) {
+				return setupOpenCode(project, fast)
+			},
+			"roo":     setupRooCode,
+			"roocode": setupRooCode,
+		}, setupConfigDir, setupProject, true)
 	},
 }
 
@@ -69,10 +83,10 @@ var uninstallCmd = &cobra.Command{
 			"windsurf":    uninstallWindsurf,
 			"antigravity": uninstallAntigravity,
 			"codex":       uninstallCodex,
-			"opencode":    func(_ string, project bool) (map[string]string, error) { return uninstallOpenCode(project) },
+			"opencode":    func(_ string, project bool, _ bool) (map[string]string, error) { return uninstallOpenCode(project) },
 			"roo":         uninstallRooCode,
 			"roocode":     uninstallRooCode,
-		}, setupConfigDir, setupProject)
+		}, setupConfigDir, setupProject, false)
 	},
 }
 
@@ -99,7 +113,21 @@ func resolveConfigDir(agentDotDir string, configDir string, project bool) string
 	return filepath.Join(home, agentDotDir)
 }
 
-func setupClaudeCode(configDir string, project bool) (map[string]string, error) {
+func addFastContextServers(mcpServers map[string]any) {
+	mcpServers["ripgrep"] = map[string]any{
+		"command": "npx",
+		"args":    []string{"-y", "mcp-ripgrep@latest"},
+	}
+	// Note: LLM tool assumes cloning to ~/.llmtooling/code-search-mcp.
+	home, _ := os.UserHomeDir()
+	codeSearchPath := filepath.Join(home, ".llmtooling", "code-search-mcp", "dist", "index.js")
+	mcpServers["code-search"] = map[string]any{
+		"command": "node",
+		"args":    []string{codeSearchPath},
+	}
+}
+
+func setupClaudeCode(configDir string, project bool, fastContext bool) (map[string]string, error) {
 	skillTarget := resolveConfigDir(".claude", configDir, project)
 
 	mcpEntry := map[string]any{
@@ -117,7 +145,7 @@ func setupClaudeCode(configDir string, project bool) (map[string]string, error) 
 		cwd, _ := os.Getwd()
 
 		configPath = filepath.Join(cwd, ".mcp.json")
-		if err := writeMCPJSON(configPath, mcpEntry); err != nil {
+		if err := writeMCPJSON(configPath, mcpEntry, fastContext); err != nil {
 			return nil, err
 		}
 	} else {
@@ -125,7 +153,7 @@ func setupClaudeCode(configDir string, project bool) (map[string]string, error) 
 		home, _ := os.UserHomeDir()
 
 		configPath = filepath.Join(home, ".claude.json")
-		if err := writeClaudeJSONUserMCP(configPath, mcpEntry); err != nil {
+		if err := writeClaudeJSONUserMCP(configPath, mcpEntry, fastContext); err != nil {
 			return nil, err
 		}
 	}
@@ -134,12 +162,15 @@ func setupClaudeCode(configDir string, project bool) (map[string]string, error) 
 	if installSkill(skillTarget) {
 		msg += " and skill" //nolint:goconst
 	}
+	if fastContext && installFastContextSkill(skillTarget) {
+		msg += " with fast context"
+	}
 
 	return map[string]string{"message": msg}, nil
 }
 
 // writeMCPJSON writes an MCP server entry into a .mcp.json file (project scope).
-func writeMCPJSON(configPath string, entry map[string]any) error {
+func writeMCPJSON(configPath string, entry map[string]any, fastContext bool) error {
 	var config map[string]any
 	if data, err := os.ReadFile(configPath); err == nil {
 		if err := json.Unmarshal(data, &config); err != nil {
@@ -157,6 +188,10 @@ func writeMCPJSON(configPath string, entry map[string]any) error {
 
 	mcpServers["pantry"] = entry
 
+	if fastContext {
+		addFastContextServers(mcpServers)
+	}
+
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
@@ -170,7 +205,7 @@ func writeMCPJSON(configPath string, entry map[string]any) error {
 }
 
 // writeClaudeJSONUserMCP writes an MCP server entry into ~/.claude.json top-level mcpServers (user scope).
-func writeClaudeJSONUserMCP(configPath string, entry map[string]any) error {
+func writeClaudeJSONUserMCP(configPath string, entry map[string]any, fastContext bool) error {
 	var root map[string]any
 	if data, err := os.ReadFile(configPath); err == nil {
 		if err := json.Unmarshal(data, &root); err != nil {
@@ -187,6 +222,9 @@ func writeClaudeJSONUserMCP(configPath string, entry map[string]any) error {
 	}
 
 	mcpServers["pantry"] = entry
+	if fastContext {
+		addFastContextServers(mcpServers)
+	}
 
 	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
@@ -200,7 +238,7 @@ func writeClaudeJSONUserMCP(configPath string, entry map[string]any) error {
 	return nil
 }
 
-func setupCursor(configDir string, project bool) (map[string]string, error) {
+func setupCursor(configDir string, project bool, fastContext bool) (map[string]string, error) {
 	target := resolveConfigDir(".cursor", configDir, project)
 	configPath := filepath.Join(target, "mcp.json")
 
@@ -226,6 +264,10 @@ func setupCursor(configDir string, project bool) (map[string]string, error) {
 		"args":    []string{"mcp"},
 	}
 
+	if fastContext {
+		addFastContextServers(mcpServers)
+	}
+
 	// Write config
 	if err := os.MkdirAll(target, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
@@ -244,11 +286,14 @@ func setupCursor(configDir string, project bool) (map[string]string, error) {
 	if installSkill(target) {
 		msg += " and skill"
 	}
+	if fastContext && installFastContextSkill(target) {
+		msg += " with fast context"
+	}
 
 	return map[string]string{"message": msg}, nil
 }
 
-func setupWindsurf(configDir string, project bool) (map[string]string, error) {
+func setupWindsurf(configDir string, project bool, fastContext bool) (map[string]string, error) {
 	var targets []string
 	if configDir != "" {
 		targets = append(targets, configDir)
@@ -325,7 +370,7 @@ func setupWindsurf(configDir string, project bool) (map[string]string, error) {
 	return map[string]string{"message": strings.Join(installed, "\n")}, nil
 }
 
-func setupAntigravity(configDir string, project bool) (map[string]string, error) {
+func setupAntigravity(configDir string, project bool, fastContext bool) (map[string]string, error) {
 	var target string
 	if configDir != "" {
 		target = configDir
@@ -361,6 +406,10 @@ func setupAntigravity(configDir string, project bool) (map[string]string, error)
 		"args":    []string{"mcp"},
 	}
 
+	if fastContext {
+		addFastContextServers(mcpServers)
+	}
+
 	// Write config
 	if err := os.MkdirAll(target, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
@@ -383,7 +432,7 @@ func setupAntigravity(configDir string, project bool) (map[string]string, error)
 	return map[string]string{"message": msg}, nil
 }
 
-func setupCodex(configDir string, project bool) (map[string]string, error) {
+func setupCodex(configDir string, project bool, fastContext bool) (map[string]string, error) {
 	target := resolveConfigDir(".codex", configDir, project)
 	configPath := filepath.Join(target, "config.toml")
 	agentsPath := filepath.Join(target, "AGENTS.md")
@@ -436,11 +485,14 @@ func setupCodex(configDir string, project bool) (map[string]string, error) {
 	if installSkill(target) {
 		msg += " (MCP + AGENTS.md + skill)"
 	}
+	if fastContext && installFastContextSkill(target) {
+		msg += " + fast context"
+	}
 
 	return map[string]string{"message": msg}, nil
 }
 
-func setupOpenCode(project bool) (map[string]string, error) {
+func setupOpenCode(project bool, fastContext bool) (map[string]string, error) {
 	var configPath string
 
 	if project {
@@ -487,14 +539,16 @@ func setupOpenCode(project bool) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to write config: %w", err)
 	}
 
-	return map[string]string{
-		"message": "Installed Pantry MCP server in " + configPath,
-	}, nil
+	msg := "Installed Pantry MCP server in " + configPath
+	if fastContext {
+		msg += " with fast context"
+	}
+	return map[string]string{"message": msg}, nil
 }
 
-// removePantryFromMCPJSON reads a JSON config file, removes the "pantry" key from
+// removeServersFromMCPJSON reads a JSON config file, removes the specified keys from
 // "mcpServers", and writes the result back.
-func removePantryFromMCPJSON(configPath string) error {
+func removeServersFromMCPJSON(configPath string, keysToRemove []string) error {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
@@ -506,7 +560,9 @@ func removePantryFromMCPJSON(configPath string) error {
 	}
 
 	if mcpServers, ok := config["mcpServers"].(map[string]any); ok {
-		delete(mcpServers, "pantry")
+		for _, key := range keysToRemove {
+			delete(mcpServers, key)
+		}
 	}
 
 	newData, err := json.MarshalIndent(config, "", "  ")
@@ -521,7 +577,7 @@ func removePantryFromMCPJSON(configPath string) error {
 	return nil
 }
 
-func uninstallClaudeCode(configDir string, project bool) (map[string]string, error) {
+func uninstallClaudeCode(configDir string, project bool, _ bool) (map[string]string, error) {
 	skillTarget := resolveConfigDir(".claude", configDir, project)
 
 	var configPath string
@@ -542,7 +598,7 @@ func uninstallClaudeCode(configDir string, project bool) (map[string]string, err
 		}
 	}
 
-	if err := removePantryFromMCPJSON(configPath); err != nil {
+	if err := removeServersFromMCPJSON(configPath, []string{"pantry", "ripgrep", "code-search"}); err != nil {
 		return nil, err
 	}
 
@@ -550,11 +606,14 @@ func uninstallClaudeCode(configDir string, project bool) (map[string]string, err
 	if uninstallSkill(skillTarget) {
 		msg += " and skill"
 	}
+	if uninstallFastContextSkill(skillTarget) {
+		msg += " and fast context skill"
+	}
 
 	return map[string]string{"message": msg}, nil
 }
 
-func uninstallCursor(configDir string, project bool) (map[string]string, error) {
+func uninstallCursor(configDir string, project bool, _ bool) (map[string]string, error) {
 	target := resolveConfigDir(".cursor", configDir, project)
 	configPath := filepath.Join(target, "mcp.json")
 
@@ -562,7 +621,7 @@ func uninstallCursor(configDir string, project bool) (map[string]string, error) 
 		return map[string]string{"message": "Pantry not found in Cursor config"}, nil
 	}
 
-	if err := removePantryFromMCPJSON(configPath); err != nil {
+	if err := removeServersFromMCPJSON(configPath, []string{"pantry", "ripgrep", "code-search"}); err != nil {
 		return nil, err
 	}
 
@@ -570,11 +629,14 @@ func uninstallCursor(configDir string, project bool) (map[string]string, error) 
 	if uninstallSkill(target) {
 		msg += " and skill"
 	}
+	if uninstallFastContextSkill(target) {
+		msg += " and fast context skill"
+	}
 
 	return map[string]string{"message": msg}, nil
 }
 
-func uninstallWindsurf(configDir string, project bool) (map[string]string, error) {
+func uninstallWindsurf(configDir string, project bool, _ bool) (map[string]string, error) {
 	var targets []string
 	if configDir != "" {
 		targets = append(targets, configDir)
@@ -609,13 +671,16 @@ func uninstallWindsurf(configDir string, project bool) (map[string]string, error
 			continue
 		}
 
-		if err := removePantryFromMCPJSON(configPath); err != nil {
+		if err := removeServersFromMCPJSON(configPath, []string{"pantry", "ripgrep", "code-search"}); err != nil {
 			return nil, err
 		}
 
 		msg := "Removed Pantry from " + configPath
 		if uninstallSkill(target) {
 			msg += " and skill"
+		}
+		if uninstallFastContextSkill(target) {
+			msg += " and fast context skill"
 		}
 		removed = append(removed, msg)
 	}
@@ -627,7 +692,7 @@ func uninstallWindsurf(configDir string, project bool) (map[string]string, error
 	return map[string]string{"message": strings.Join(removed, "\n")}, nil
 }
 
-func uninstallAntigravity(configDir string, project bool) (map[string]string, error) {
+func uninstallAntigravity(configDir string, project bool, _ bool) (map[string]string, error) {
 	var target string
 	if configDir != "" {
 		target = configDir
@@ -645,7 +710,7 @@ func uninstallAntigravity(configDir string, project bool) (map[string]string, er
 		return map[string]string{"message": "Pantry not found in Antigravity config"}, nil
 	}
 
-	if err := removePantryFromMCPJSON(configPath); err != nil {
+	if err := removeServersFromMCPJSON(configPath, []string{"pantry", "ripgrep", "code-search"}); err != nil {
 		return nil, err
 	}
 
@@ -653,17 +718,23 @@ func uninstallAntigravity(configDir string, project bool) (map[string]string, er
 	if uninstallSkill(target) {
 		msg += " and skill"
 	}
+	if uninstallFastContextSkill(target) {
+		msg += " and fast context skill"
+	}
 
 	return map[string]string{"message": msg}, nil
 }
 
-func uninstallCodex(configDir string, project bool) (map[string]string, error) {
+func uninstallCodex(configDir string, project bool, _ bool) (map[string]string, error) {
 	target := resolveConfigDir(".codex", configDir, project)
 
 	msg := "Codex uninstall: manually remove Pantry entries from .codex/config.toml and AGENTS.md"
 
 	if uninstallSkill(target) {
 		msg += ". Removed skill."
+	}
+	if uninstallFastContextSkill(target) {
+		msg += " Removed fast context skill."
 	}
 
 	return map[string]string{"message": msg}, nil
@@ -696,6 +767,8 @@ func uninstallOpenCode(project bool) (map[string]string, error) {
 
 	if mcp, ok := config["mcp"].(map[string]any); ok {
 		delete(mcp, "pantry")
+		delete(mcp, "ripgrep")
+		delete(mcp, "code-search")
 	}
 
 	newData, err := json.MarshalIndent(config, "", "  ")
@@ -712,7 +785,7 @@ func uninstallOpenCode(project bool) (map[string]string, error) {
 	}, nil
 }
 
-func setupRooCode(configDir string, project bool) (map[string]string, error) {
+func setupRooCode(configDir string, project bool, fastContext bool) (map[string]string, error) {
 	var target string
 	//nolint:gocritic
 	if configDir != "" {
@@ -746,6 +819,10 @@ func setupRooCode(configDir string, project bool) (map[string]string, error) {
 		"args":    []string{"mcp"},
 	}
 
+	if fastContext {
+		addFastContextServers(mcpServers)
+	}
+
 	if err := os.MkdirAll(target, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -759,12 +836,16 @@ func setupRooCode(configDir string, project bool) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to write config: %w", err)
 	}
 
+	msg := "Installed Pantry MCP server in " + configPath
+	if fastContext {
+		msg += " with fast context"
+	}
 	return map[string]string{
-		"message": "Installed Pantry MCP server in " + configPath,
+		"message": msg,
 	}, nil
 }
 
-func uninstallRooCode(configDir string, project bool) (map[string]string, error) {
+func uninstallRooCode(configDir string, project bool, _ bool) (map[string]string, error) {
 	var target string
 	//nolint:gocritic
 	if configDir != "" {
