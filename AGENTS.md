@@ -75,6 +75,8 @@ Run once to auto-install hooks for your agent:
 pantry setup cursor   # or: claude-code, windsurf, antigravity, codex, opencode
 ```
 
+*Note: The setup command will prompt you to optionally install "fast context" MCP servers (`ripgrep` and `code-search`) for enhanced codebase indexing.*
+
 To remove: `pantry uninstall cursor`
 
 ## Build & develop

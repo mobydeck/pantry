@@ -47,6 +47,8 @@ pantry init
 pantry setup claude-code   # or: cursor, windsurf, antigravity, codex, opencode, roocode
 ```
 
+During setup (except for Windsurf), you will be prompted to install **fast context MCP servers** (`ripgrep` and `code-search`). Answering "yes" will also add these powerful context retrieval plugins to your agent's configuration.
+
 This writes the MCP server entry into your agent's config file. Restart the agent and pantry will be available as a tool.
 
 Run `pantry doctor` to verify everything is working.
