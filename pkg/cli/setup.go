@@ -118,12 +118,9 @@ func addFastContextServers(mcpServers map[string]any) {
 		"command": "npx",
 		"args":    []string{"-y", "mcp-ripgrep@latest"},
 	}
-	// Note: LLM tool assumes cloning to ~/.llmtooling/code-search-mcp.
-	home, _ := os.UserHomeDir()
-	codeSearchPath := filepath.Join(home, ".llmtooling", "code-search-mcp", "dist", "index.js")
 	mcpServers["code-search"] = map[string]any{
-		"command": "node",
-		"args":    []string{codeSearchPath},
+		"command": "npx",
+		"args":    []string{"-y", "code-search-mcp@latest"},
 	}
 }
 
