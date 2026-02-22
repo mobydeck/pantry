@@ -220,6 +220,72 @@ pantry store \
 | `--source` | `-s` | Filter by source agent |
 | `--query` | `-q` | Text filter (list only) |
 
+## Under the hood
+
+### CGO-free, pure Go
+
+Pantry is built without CGO. SQLite runs as a WebAssembly module inside the process via [wazero](https://github.com/tetratelabs/wazero) — a zero-dependency, pure-Go WASM runtime. This means:
+
+- **No C compiler needed** — `go build` just works, no `gcc`, `musl`, or `zig` required
+- **True static binaries** — the distributed binaries have no shared library dependencies (`ldd` shows nothing)
+- **Cross-compilation is trivial** — all five platform targets (`GOOS`/`GOARCH`) build from a single `go build` invocation with `CGO_ENABLED=0`
+- **Reproducible builds** — no C toolchain version drift
+
+The tradeoff: first query of a session pays a one-time ~10 ms WASM compilation cost. Subsequent queries are fast.
+
+### SQLite extensions
+
+Two SQLite extensions are compiled into the binary as embedded WASM blobs:
+
+**[sqlite-vec](https://github.com/asg017/sqlite-vec)** — vector similarity search. Pantry uses it to store note embeddings as 768- or 1536-dimensional `float32` vectors in a `vec0` virtual table, then retrieves the nearest neighbours with a single SQL query:
+
+```sql
+SELECT note_id, distance
+FROM vec_notes
+WHERE embedding MATCH ?
+ORDER BY distance
+LIMIT 20
+```
+
+The extension is loaded at connection open time via `sqlite3_load_extension` equivalent in the WASM host.
+
+**FTS5** — SQLite's built-in full-text search virtual table. Notes are indexed in an `fts_notes` shadow table using the `porter` tokenizer (English stemming). FTS5 handles keyword search when no embedding provider is configured, and also runs alongside vector search as a hybrid fallback.
+
+### Storage layout
+
+Notes live in `~/.pantry/`:
+
+```
+~/.pantry/
+  config.yaml          # embedding provider, model, API key
+  pantry.db            # SQLite database (WAL mode)
+  shelves/
+    project/
+      YYYY-MM-DD.md    # daily Markdown files — human-readable, Obsidian-compatible
+```
+
+The SQLite database holds structured note data and search indexes. The Markdown files in `shelves/` are append-only daily logs — they're the canonical human-readable view and survive even if the database is deleted (run `pantry reindex` to rebuild from them).
+
+### GORM + vendored gormlite
+
+The ORM layer uses [GORM](https://gorm.io) with a vendored copy of [gormlite](https://github.com/ncruces/go-sqlite3/tree/main/gormlite) — the SQLite GORM dialector from the same `ncruces/go-sqlite3` ecosystem. It's vendored (at `internal/gormlite/`) rather than imported as a module because the gormlite sub-module is versioned independently from the parent `go-sqlite3` package, and the sqlite-vec WASM binary constrains the host runtime to `go-sqlite3 v0.23.x`. Vendoring decouples dialector quality from host runtime version.
+
+### Dependency count
+
+The binary embeds everything it needs. Runtime dependencies: zero. The full `go.mod` direct dependency list:
+
+| Package | Role |
+|---------|------|
+| `ncruces/go-sqlite3` | SQLite via WASM/wazero |
+| `asg017/sqlite-vec-go-bindings` | Vector search extension (WASM blob) |
+| `tetratelabs/wazero` | Pure-Go WebAssembly runtime |
+| `gorm.io/gorm` | ORM |
+| `modelcontextprotocol/go-sdk` | MCP server |
+| `openai/openai-go` | OpenAI/OpenRouter embedding API |
+| `spf13/cobra` | CLI |
+| `google/uuid` | Note IDs |
+| `go.yaml.in/yaml/v3` | Config parsing |
+
 ## License
 
 MIT
