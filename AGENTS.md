@@ -72,8 +72,10 @@ You MUST store a note when any of these happen:
 Run once to auto-install hooks for your agent:
 
 ```bash
-pantry setup cursor   # or: claude-code, windsurf, antigravity, codex, opencode
+pantry setup cursor   # or: claude-code, windsurf, antigravity, codex, codex-cli, opencode, copilot, gemini-cli
 ```
+
+*Note: The setup command will prompt you to optionally install "fast context" MCP servers (`ripgrep` and `code-search`) for enhanced codebase indexing.*
 
 To remove: `pantry uninstall cursor`
 

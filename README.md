@@ -44,8 +44,10 @@ pantry init
 ### Connect your agent
 
 ```bash
-pantry setup claude-code   # or: cursor, windsurf, antigravity, codex, opencode, roocode
+pantry setup claude-code   # or: cursor, windsurf, antigravity, codex, codex-cli, opencode, roocode, copilot, gemini-cli
 ```
+
+During setup (except for Windsurf), you will be prompted to install **fast context MCP servers** (`ripgrep` and `code-search`). Answering "yes" will also add these powerful context retrieval plugins to your agent's configuration.
 
 This writes the MCP server entry into your agent's config file. Restart the agent and pantry will be available as a tool.
 
@@ -53,7 +55,7 @@ Run `pantry doctor` to verify everything is working.
 
 ### Tell your agent to use Pantry
 
-MCP registration makes the tools available, but your agent also needs instructions to actually use them. The `setup` command installs a skill file automatically for agents that support it (Claude Code, Cursor, Windsurf, Antigravity, Codex). For other agents — or if you prefer to use a project-level rules file — add the following to your `AGENTS.md`, `.rules`, `CLAUDE.md`, or equivalent:
+MCP registration makes the tools available, but your agent also needs instructions to actually use them. The `setup` command installs a skill file automatically for agents that support it (Claude Code, Cursor, Windsurf, Antigravity, Codex, Codex CLI, Copilot, Gemini CLI). For other agents — or if you prefer to use a project-level rules file — add the following to your `AGENTS.md`, `.rules`, `CLAUDE.md`, or equivalent:
 
 ```markdown
 ## Pantry — persistent notes

@@ -63,3 +63,57 @@ func uninstallSkill(agentHome string) bool {
 
 	return true
 }
+
+//go:embed skills/fastcontext/SKILL.md
+var fastContextSkillContent []byte
+
+// installFastContextSkill installs the Fast Context SKILL.md into an agent's skills directory.
+// agentHome: path to the agent's config directory (e.g. ~/.claude, ~/.cursor, ~/.codex).
+// Returns true if skill was installed, false if already present.
+func installFastContextSkill(agentHome string) bool {
+	skillDir := filepath.Join(agentHome, "skills", "fastcontext")
+	skillPath := filepath.Join(skillDir, "SKILL.md")
+
+	if _, err := os.Stat(skillPath); err == nil {
+		return false
+	}
+
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		return false
+	}
+
+	if err := os.WriteFile(skillPath, fastContextSkillContent, 0644); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func uninstallFastContextSkill(agentHome string) bool {
+	skillDir := filepath.Join(agentHome, "skills", "fastcontext")
+
+	info, err := os.Stat(skillDir)
+	if err != nil {
+		return false
+	}
+
+	if info.IsDir() {
+		if err := os.RemoveAll(skillDir); err != nil {
+			return false
+		}
+	} else {
+		// Symlink
+		if err := os.Remove(skillDir); err != nil {
+			return false
+		}
+	}
+
+	// Remove the parent skills/ dir if now empty.
+	skillsDir := filepath.Join(agentHome, "skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err == nil && len(entries) == 0 {
+		_ = os.Remove(skillsDir)
+	}
+
+	return true
+}
