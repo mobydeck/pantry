@@ -77,31 +77,28 @@ Do not skip either step. Notes are how context survives across sessions.
 
 ## Semantic search (optional)
 
-Keyword search (FTS5) works with no extra setup. To also enable semantic vector search, configure an embedding provider in `~/.pantry/config.yaml`:
+Keyword search (FTS5) works with no extra setup. To also enable semantic vector search, configure an embedding provider using `pantry config set` or by editing `~/.pantry/config.yaml` directly.
 
 **Ollama (local, free):**
-```yaml
-embedding:
-  provider: ollama
-  model: nomic-embed-text
-  base_url: http://localhost:11434
+```bash
+pantry config set --provider ollama
+ollama pull nomic-embed-text
 ```
-Install [Ollama](https://ollama.com), then: `ollama pull nomic-embed-text`
 
 **OpenAI:**
-```yaml
-embedding:
-  provider: openai
-  model: text-embedding-3-small
-  api_key: sk-...
+```bash
+pantry config set --provider openai --api-key sk-...
 ```
 
 **OpenRouter:**
-```yaml
-embedding:
-  provider: openrouter
-  model: openai/text-embedding-3-small
-  api_key: sk-or-...
+```bash
+pantry config set --provider openrouter --api-key sk-or-...
+```
+
+Use `--model` to override the default model for a provider, and `--base-url` for custom endpoints:
+```bash
+pantry config set --provider openai --model text-embedding-3-large --api-key sk-...
+pantry config set --api-key sk-...   # update key only, keep everything else
 ```
 
 After changing providers, rebuild the vector index:
@@ -177,6 +174,7 @@ pantry remove <id>           Delete a note
 pantry notes                 List daily note files (alias: log)
 pantry config                Show current configuration
 pantry config init           Generate a starter config.yaml
+pantry config set            Set a configuration value
 pantry setup <agent>         Configure MCP for an agent
 pantry uninstall <agent>     Remove agent MCP config
 pantry reindex               Rebuild vector search index
