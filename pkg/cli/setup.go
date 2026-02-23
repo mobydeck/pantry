@@ -25,7 +25,7 @@ func runAgentCmd(agent string, handlers map[string]agentFunc, configDir string, 
 	fn, ok := handlers[agent]
 	if !ok {
 		fmt.Fprintf(os.Stderr, "Error: unknown agent: %s\n", agent)
-		fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, windsurf, antigravity, codex, opencode, roocode, copilot\n")
+		fmt.Fprintf(os.Stderr, "Supported agents: claude, cursor, windsurf, antigravity, codex, codex-cli, opencode, roocode, copilot, gemini-cli\n")
 		os.Exit(1)
 	}
 
@@ -62,7 +62,9 @@ var setupCmd = &cobra.Command{
 			"windsurf":    setupWindsurf,
 			"antigravity": setupAntigravity,
 			"codex":       setupCodex,
+			"codex-cli":   setupCodex,
 			"copilot":     setupCopilot,
+			"gemini-cli":  setupGeminiCli,
 			"opencode": func(_ string, project bool, fast bool) (map[string]string, error) {
 				return setupOpenCode(project, fast)
 			},
@@ -85,7 +87,9 @@ var uninstallCmd = &cobra.Command{
 			"windsurf":    uninstallWindsurf,
 			"antigravity": uninstallAntigravity,
 			"codex":       uninstallCodex,
+			"codex-cli":   uninstallCodex,
 			"copilot":     uninstallCopilot,
+			"gemini-cli":  uninstallGeminiCli,
 			"opencode":    func(_ string, project bool, _ bool) (map[string]string, error) { return uninstallOpenCode(project) },
 			"roo":         uninstallRooCode,
 			"roocode":     uninstallRooCode,
@@ -970,6 +974,93 @@ func uninstallCopilot(_ string, project bool, _ bool) (map[string]string, error)
 	if err := removeServersFromMCPJSON(configPath, []string{"pantry", "ripgrep", "code-search"}); err != nil {
 		return nil, err
 	}
+
+	return map[string]string{
+		"message": "Removed Pantry from " + configPath,
+	}, nil
+}
+
+func getGeminiCliConfigPath(project bool) (string, error) {
+	if project {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(cwd, ".gemini", "settings.json"), nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".gemini", "settings.json"), nil
+}
+
+func setupGeminiCli(_ string, project bool, fastContext bool) (map[string]string, error) {
+	configPath, err := getGeminiCliConfigPath(project)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gemini-cli config path: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create gemini-cli config directory: %w", err)
+	}
+
+	mcpEntry := map[string]any{
+		"command": "pantry",
+		"args":    []string{"mcp"},
+	}
+
+	// Uses same root JSON structure (mcpServers at top level) as Claude
+	if err := writeClaudeJSONUserMCP(configPath, mcpEntry, fastContext); err != nil {
+		return nil, fmt.Errorf("failed to write settings.json: %w", err)
+	}
+
+	var agentHome string
+	if project {
+		cwd, _ := os.Getwd()
+		agentHome = filepath.Join(cwd, ".gemini")
+	} else {
+		home, _ := os.UserHomeDir()
+		agentHome = filepath.Join(home, ".gemini")
+	}
+
+	installSkill(agentHome)
+	msg := "Installed Pantry MCP server in " + configPath + "\n"
+
+	if fastContext {
+		installFastContextSkill(agentHome)
+		msg += "Installed fast context MCP servers and skills.\n"
+	}
+
+	return map[string]string{"message": msg}, nil
+}
+
+func uninstallGeminiCli(_ string, project bool, _ bool) (map[string]string, error) {
+	configPath, err := getGeminiCliConfigPath(project)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gemini-cli config path: %w", err)
+	}
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return map[string]string{"message": "Pantry not found in gemini-cli config"}, nil
+	}
+
+	if err := removeServersFromMCPJSON(configPath, []string{"pantry", "ripgrep", "code-search"}); err != nil {
+		return nil, err
+	}
+
+	var agentHome string
+	if project {
+		cwd, _ := os.Getwd()
+		agentHome = filepath.Join(cwd, ".gemini")
+	} else {
+		home, _ := os.UserHomeDir()
+		agentHome = filepath.Join(home, ".gemini")
+	}
+
+	uninstallSkill(agentHome)
+	uninstallFastContextSkill(agentHome)
 
 	return map[string]string{
 		"message": "Removed Pantry from " + configPath,
