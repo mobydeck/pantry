@@ -1,0 +1,33 @@
+@.cursor/plans/tasks/task-NNN.md
+@internal/[layer]/[file].go
+
+## Выполни задачу из task-NNN.md
+
+Напиши unit тесты.
+
+Создай ТОЛЬКО: `internal/[layer]/[file]_test.go`
+
+Тесты должны покрывать:
+- Happy path
+- Все ветки ошибок (каждый `return err`)
+- Edge cases (nil, пустые значения, граничные условия)
+
+Требования:
+- Моки для всех внешних зависимостей
+- Каждый тест независим
+- Именование: `Test[FuncName]_[scenario]`
+- testify: `assert`, `require`, `mock`
+
+НЕ создавай документацию.
+
+После:
+```bash
+go test ./internal/[layer]/... -cover
+git commit -m "[commit из задачи]"
+```
+
+После: "✅ Тесты: X/X pass, Y% coverage"
+
+МОДЕЛЬ: Haiku С thinking
+СТОИМОСТЬ: ~$0.15-0.20
+РЕЖИМ: Agent Mode

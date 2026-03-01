@@ -1,0 +1,33 @@
+@.cursor/plans/tasks/task-NNN.md
+@main.go
+
+## Выполни задачу из task-NNN.md
+
+Создай Clean Architecture слои.
+
+Создай ТОЛЬКО:
+- `internal/handler/[name]_handler.go`
+- `internal/service/[name]_service.go`
+- `internal/repository/[name]_repository.go`
+- Обновлённый `main.go` с Dependency Injection
+
+Принципы:
+- Handler: парсинг → service → ответ
+- Service: бизнес-логика, интерфейсы для зависимостей
+- Repository: только I/O
+- main.go: wire зависимостей
+
+НЕ создавай документацию, SUMMARY, CHECKLIST.
+
+После:
+```bash
+bash .cursor/scripts/bash/snapshot-state.sh
+git commit -m "refactor: clean architecture for [name]"
+```
+
+После: "✅ Слои созданы"
+архитектура меняет всю структуру, следующую задачу нужно проверить.
+
+МОДЕЛЬ: Sonnet БЕЗ thinking
+СТОИМОСТЬ: ~$0.15
+РЕЖИМ: Agent Mode

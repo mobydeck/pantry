@@ -1,0 +1,37 @@
+@.cursor/plans/tasks/task-NNN.md
+@internal/handler/
+@internal/service/
+@internal/repository/
+
+## Выполни задачу из task-NNN.md
+
+Добавь Godoc для всех экспортируемых функций и структур.
+
+Формат:
+```go
+// FunctionName делает X.
+// Возвращает Y или ошибку если Z.
+func FunctionName(...) ...
+
+// StructName представляет X.
+type StructName struct {
+```
+
+Правила:
+- Только экспортируемые (с заглавной буквы)
+- Первое слово = имя функции/типа
+- Кратко и по делу
+
+Обнови ТОЛЬКО существующие файлы. НЕ создавай новые.
+
+После:
+```bash
+go vet ./...
+git commit -m "[commit из задачи]"
+```
+
+После: "✅ Godoc: X функций"
+
+МОДЕЛЬ: Haiku С thinking
+СТОИМОСТЬ: ~$0.20
+РЕЖИМ: Normal Mode

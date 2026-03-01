@@ -1,0 +1,100 @@
+@.cursor/analysis/project-map.md
+@.cursor/context/base.md
+
+## Задача: Создать атомарный план
+
+### Что создать:
+
+**1. Индекс** `.cursor/plans/optimization-plan.md`:
+```markdown
+# План оптимизации
+Создан: [дата]
+
+## Очередь
+- [ ] task-001 — название (03-fix-simple-bug, Haiku, ~$0.03)
+- [ ] task-002 — название (05-write-unit-tests, Haiku, ~$0.18)
+
+## Выполнено
+(пусто)
+```
+
+**2. Файл на каждую задачу** `.cursor/plans/tasks/task-NNN.md`:
+```markdown
+# Задача NNN: [название]
+
+## Проблема
+[описание]
+
+## Файл
+`path/to/file.go`
+
+## Функция
+`FuncName` (~строка X)
+
+## Решение
+[конкретное решение]
+
+## Промпт
+[ТОЛЬКО из списка ниже]
+
+## Модель
+[модель из таблицы ниже]
+
+## Commit
+[тип]: [описание]
+```
+
+---
+
+### ВАЖНО: допустимые значения поля "Промпт"
+
+Используй ТОЛЬКО эти значения — других промптов не существует:
+
+| Промпт | Когда использовать |
+|--------|--------------------|
+| `03-fix-simple-bug.txt` | баг: race condition, утечка ресурсов, nil pointer, неверная логика, DB-транзакции, некорректная обработка ошибок |
+| `04-create-architecture.txt` | создание слоёв handler/service/repository с нуля |
+| `05-refactor.txt` | простой рефакторинг: валидация параметров, разбить функцию, устранить дублирование, вынести константы |
+| `05b-refactor-complex.txt` | сложный рефакторинг: переписать под интерфейсы, убрать глобальные переменные, разделить God-object, DI в существующем коде |
+| `06-write-unit-tests.txt` | unit тесты для любого компонента |
+| `07-add-godoc.txt` | Godoc комментарии для экспортируемых функций и структур |
+| `09-update-readme.txt` | обновление README |
+
+НЕ придумывай новые имена промптов.
+
+---
+
+### Таблица моделей:
+
+| Промпт | Модель |
+|--------|--------|
+| 03-fix-simple-bug | Haiku БЕЗ thinking |
+| 04-create-architecture | Sonnet БЕЗ thinking |
+| 05-refactor | Haiku С thinking |
+| 05b-refactor-complex | Sonnet С thinking (medium) |
+| 06-write-unit-tests | Haiku С thinking |
+| 07-add-godoc | Haiku С thinking |
+| 09-update-readme | Haiku С thinking |
+
+---
+
+### Приоритеты задач:
+1. Критические баги (утечки, race condition, игнорирование ошибок, nil pointer)
+2. Рефакторинг блокирующий тесты (валидация, структура)
+3. Тесты (60% coverage service/, 40% handler/)
+4. Архитектура
+5. Документация
+
+Строки — только ориентир (~X).
+
+После создания:
+```bash
+git add .cursor/plans/
+git commit -m "chore: add optimization plan"
+```
+
+После: "✅ Задач: X, бюджет: ~$Y"
+
+МОДЕЛЬ: Sonnet БЕЗ thinking
+СТОИМОСТЬ: ~$0.50
+РЕЖИМ: Agent Mode

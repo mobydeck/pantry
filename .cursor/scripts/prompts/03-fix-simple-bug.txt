@@ -1,0 +1,22 @@
+@.cursor/plans/tasks/task-NNN.md
+@path/to/file.go
+
+## Выполни задачу из task-NNN.md
+
+1. Исправь баг как описано в задаче
+2. Создай тест который воспроизводит и проверяет исправление
+
+Создай ТОЛЬКО: исправленный код + тест.
+НЕ создавай: BUGFIX*.md, SUMMARY*.md, CHECKLIST*.md
+
+После:
+```bash
+bash .cursor/scripts/bash/snapshot-state.sh
+git commit -m "fix: [описание из задачи]"
+```
+
+После: "✅ Баг исправлен: [одна строка]"
+
+МОДЕЛЬ: Haiku БЕЗ thinking
+СТОИМОСТЬ: ~$0.02-0.05
+РЕЖИМ: Agent Mode

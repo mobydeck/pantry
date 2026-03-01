@@ -1,5 +1,7 @@
 /.*
 !.git*
 !.golangci.yml
+!.cursor
+!.specify
 /devbin
 /dist
